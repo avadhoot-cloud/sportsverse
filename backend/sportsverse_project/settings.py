@@ -26,7 +26,7 @@ SECRET_KEY = "django-insecure-wi!)#lstspgyvym#yl3f=1mq69483dt7j@gepi5*jp_-szeiwe
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0.112', '10.0.2.2','192.168.0.113']
+ALLOWED_HOSTS = ['*','127.0.0.1', 'localhost', '192.168.0.112', '10.0.2.2','192.168.0.113']
 
 
 # Application definition
@@ -85,7 +85,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql', # For MySQL
         'NAME': 'sportsverse_db',             # Your MySQL database name
         'USER': 'root',            # Your MySQL username
-        'PASSWORD': 'Hak@786',    # Your MySQL password
+        'PASSWORD': 'Avadhoot14k',    # Your MySQL password
         'HOST': 'localhost',                  # Or your database host (e.g., 'localhost')
         'PORT': '3306',                       # Default MySQL port
     }
