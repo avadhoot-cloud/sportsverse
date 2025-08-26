@@ -26,12 +26,22 @@ class Batch {
   });
 
   factory Batch.fromJson(Map<String, dynamic> json) {
+    // Some legacy data may store `schedule_details` as a List or null.
+    // Normalize it to a Map to avoid runtime type errors in UI.
+    final dynamic rawSchedule = json['schedule_details'];
+    final Map<String, dynamic> normalizedSchedule =
+        rawSchedule is Map<String, dynamic>
+            ? rawSchedule
+            : rawSchedule is Map
+                ? Map<String, dynamic>.from(rawSchedule)
+                : <String, dynamic>{};
+
     return Batch(
       id: json['id'],
       name: json['name'],
       branchId: json['branch'],
       sportId: json['sport'],
-      scheduleDetails: Map<String, dynamic>.from(json['schedule_details']),
+      scheduleDetails: normalizedSchedule,
       maxStudents: json['max_students'],
       isActive: json['is_active'],
       organizationName: json['organization_name'] ?? '',

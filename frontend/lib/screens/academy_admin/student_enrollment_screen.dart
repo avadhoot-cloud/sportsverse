@@ -68,8 +68,8 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
             batchId: result['batchId'],
             enrollmentType: result['enrollmentType'],
             startDate: result['startDate'],
-            endDate: result['endDate'],
-            totalSessions: result['totalSessions'],
+            endDate: result['enrollmentType'] == 'DURATION_BASED' ? result['endDate'] : null,
+            totalSessions: result['enrollmentType'] == 'SESSION_BASED' ? result['totalSessions'] : null,
             isActive: result['isActive'],
           );
         } else {
@@ -79,8 +79,8 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
             batchId: result['batchId'],
             enrollmentType: result['enrollmentType'],
             startDate: result['startDate'],
-            endDate: result['endDate'],
-            totalSessions: result['totalSessions'],
+            endDate: result['enrollmentType'] == 'DURATION_BASED' ? result['endDate'] : null,
+            totalSessions: result['enrollmentType'] == 'SESSION_BASED' ? result['totalSessions'] : null,
           );
         }
 

@@ -8,7 +8,8 @@ class ApiClient {
   // For Android emulator, use 10.0.2.2
   // For iOS simulator, use 127.0.0.1 or localhost
   // For physical device, use your machine's IP address
-  static const String baseUrl = 'http://192.168.29.245:8000/api';
+  static const String baseUrl = 'http://10.184.183.107:8000/api';
+  //static const String baseUrl = 'http://192.168.29.245:8000/api';
 
   String? _token;
 
@@ -51,7 +52,7 @@ class ApiClient {
   Future<http.Response> post(
     String path,
     Map<String, dynamic> body, {
-    bool includeAuth = false,
+    bool includeAuth = true,
   }) async {
     final url = Uri.parse('$baseUrl$path');
     return http.post(
@@ -88,7 +89,7 @@ class ApiClient {
     String path,
     Map<String, String> fields, {
     http.MultipartFile? file,
-    bool includeAuth = false,
+    bool includeAuth = true,
   }) async {
     final url = Uri.parse('$baseUrl$path');
     var request = http.MultipartRequest('POST', url);

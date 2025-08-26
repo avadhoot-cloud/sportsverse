@@ -133,32 +133,40 @@ class _AddStudentEnrollmentScreenState
     });
 
     try {
-      final studentEnrollmentData = {
-        'first_name': _firstNameController.text,
-        'last_name': _lastNameController.text,
-        'email': _emailController.text.isNotEmpty
-            ? _emailController.text
-            : null,
-        'phone_number': _phoneController.text.isNotEmpty
-            ? _phoneController.text
-            : null,
+      // Build payload without nulls (DRF optional fields usually disallow null)
+      final Map<String, dynamic> studentEnrollmentData = {
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
         'date_of_birth': _dateOfBirth!.toIso8601String().split('T')[0],
-        'address': _addressController.text,
-        'gender': _gender,
-        'parent_name': _parentNameController.text,
-        'parent_phone_number': _parentPhoneController.text,
-        'parent_email': _parentEmailController.text.isNotEmpty
-            ? _parentEmailController.text
-            : null,
+        'address': _addressController.text, // allow blank string
         'batch': _selectedBatch!.id,
         'enrollment_type': _enrollmentType,
-        'total_sessions': _enrollmentType == 'SESSION_BASED'
-            ? int.parse(_totalSessionsController.text)
-            : null,
-        'end_date': _enrollmentType == 'DURATION_BASED' && _endDate != null
-            ? _endDate!.toIso8601String().split('T')[0]
-            : null,
       };
+
+      if (_emailController.text.isNotEmpty) {
+        studentEnrollmentData['email'] = _emailController.text.trim();
+      }
+      if (_phoneController.text.isNotEmpty) {
+        studentEnrollmentData['phone_number'] = _phoneController.text.trim();
+      }
+      if (_gender != null && _gender!.isNotEmpty) {
+        studentEnrollmentData['gender'] = _gender;
+      }
+      if (_parentNameController.text.isNotEmpty) {
+        studentEnrollmentData['parent_name'] = _parentNameController.text.trim();
+      }
+      if (_parentPhoneController.text.isNotEmpty) {
+        studentEnrollmentData['parent_phone_number'] = _parentPhoneController.text.trim();
+      }
+      if (_parentEmailController.text.isNotEmpty) {
+        studentEnrollmentData['parent_email'] = _parentEmailController.text.trim();
+      }
+
+      if (_enrollmentType == 'SESSION_BASED') {
+        studentEnrollmentData['total_sessions'] = int.parse(_totalSessionsController.text);
+      } else if (_enrollmentType == 'DURATION_BASED' && _endDate != null) {
+        studentEnrollmentData['end_date'] = _endDate!.toIso8601String().split('T')[0];
+      }
 
       await batchApi.createStudentEnrollment(studentEnrollmentData);
 

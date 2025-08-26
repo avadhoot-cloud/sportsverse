@@ -189,19 +189,24 @@ class BatchApi {
     DateTime? endDate,
     int? totalSessions,
   }) async {
-    final enrollmentData = {
+    // Build payload with only allowed fields. Backend sets start_date automatically.
+    final Map<String, dynamic> enrollmentData = {
       'student': studentId,
       'batch': batchId,
       'enrollment_type': enrollmentType,
-      'start_date': startDate.toIso8601String().split('T')[0],
       'is_active': true,
     };
 
-    if (endDate != null) {
-      enrollmentData['end_date'] = endDate.toIso8601String().split('T')[0];
-    }
-    if (totalSessions != null) {
+    // Session-based requires total_sessions; duration-based uses end_date
+    if (enrollmentType == 'SESSION_BASED') {
+      if (totalSessions == null) {
+        throw Exception('Total sessions is required for session-based enrollment.');
+      }
       enrollmentData['total_sessions'] = totalSessions;
+    } else if (enrollmentType == 'DURATION_BASED') {
+      if (endDate != null) {
+        enrollmentData['end_date'] = endDate.toIso8601String().split('T')[0];
+      }
     }
 
     final response = await apiClient.post(
@@ -241,19 +246,24 @@ class BatchApi {
     int? totalSessions,
     required bool isActive,
   }) async {
-    final enrollmentData = {
+    // Build payload without start_date (it is managed by backend)
+    final Map<String, dynamic> enrollmentData = {
       'student': studentId,
       'batch': batchId,
       'enrollment_type': enrollmentType,
-      'start_date': startDate.toIso8601String().split('T')[0],
       'is_active': isActive,
     };
 
-    if (endDate != null) {
-      enrollmentData['end_date'] = endDate.toIso8601String().split('T')[0];
-    }
-    if (totalSessions != null) {
+    if (enrollmentType == 'SESSION_BASED') {
+      if (totalSessions == null) {
+        throw Exception('Total sessions is required for session-based enrollment.');
+      }
       enrollmentData['total_sessions'] = totalSessions;
+      // Clear any end_date if previously set
+    } else if (enrollmentType == 'DURATION_BASED') {
+      if (endDate != null) {
+        enrollmentData['end_date'] = endDate.toIso8601String().split('T')[0];
+      }
     }
 
     final response = await apiClient.put(

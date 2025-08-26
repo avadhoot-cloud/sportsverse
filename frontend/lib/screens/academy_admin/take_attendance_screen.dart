@@ -6,10 +6,11 @@ import 'dart:convert';                                 // <-- add this
 
 // A model class to represent a student with their attendance status.
 class Student {
+  final int enrollmentId;
   final String name;
   bool isPresent;
 
-  Student({required this.name, this.isPresent = false});
+  Student({required this.enrollmentId, required this.name, this.isPresent = false});
 }
 
 class TakeAttendanceScreen extends StatefulWidget {
@@ -29,6 +30,9 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
   String? _selectedSport;
   String? _selectedBranch;
   String? _selectedBatch;
+  String? _selectedSportName;
+  String? _selectedBranchName;
+  String? _selectedBatchName;
   DateTime? _selectedDate;
 
   // Controller for the date input field
@@ -79,40 +83,62 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
     }
   }
 
-  // A simulated method to fetch students from a database
+  // Fetch enrolled students for the selected batch
   Future<void> _fetchStudents() async {
-  if (_selectedBatch == null) return;
-
-  setState(() {
-    _isLoading = true;
-    _students = [];
-  });
-
-  // Fetch enrollments for the selected batch
-  final response = await apiClient.get(
-      '/enrollments/by-batch/$_selectedBatch/');
-
-  if (response.statusCode == 200) {
-    final List data = jsonDecode(response.body);
-
-    // Convert each enrollment into a Student object
-    final fetchedStudents = data.map<Student>((item) {
-      final fullName =
-          '${item['student_name']} ${item['student_last_name']}';
-      return Student(name: fullName);
-    }).toList();
+    if (_selectedBatch == null) return;
 
     setState(() {
-      _students = fetchedStudents;
-      _isLoading = false;
-      _selectAll = false;
+      _isLoading = true;
+      _students = [];
     });
-  } else {
-    setState(() {
-      _isLoading = false;
-    });
+
+    try {
+      final response = await apiClient
+          .get('/organizations/enrollments/?batch=' + _selectedBatch!);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List<dynamic> items = decoded is List
+            ? decoded
+            : (decoded is Map && decoded['results'] is List
+                ? List<dynamic>.from(decoded['results'])
+                : <dynamic>[]);
+
+        final fetchedStudents = items.map<Student>((item) {
+          // Support both nested student object (if ever provided) and flat name fields
+          final dynamic studentField = (item is Map) ? item['student'] : null;
+          final bool hasNested = studentField is Map;
+          final String firstFromObj = hasNested ? (studentField['first_name'] ?? '').toString() : '';
+          final String lastFromObj = hasNested ? (studentField['last_name'] ?? '').toString() : '';
+          final String firstFromFlat = (item is Map) ? (item['student_name'] ?? '').toString() : '';
+          final String lastFromFlat = (item is Map) ? (item['student_last_name'] ?? '').toString() : '';
+          final String first = firstFromObj.isNotEmpty ? firstFromObj : firstFromFlat;
+          final String last = lastFromObj.isNotEmpty ? lastFromObj : lastFromFlat;
+          final String fullName = (first + ' ' + last).trim();
+          final int enrollmentId = (item is Map && item['id'] != null)
+              ? int.tryParse(item['id'].toString()) ?? 0
+              : 0;
+          return Student(
+            enrollmentId: enrollmentId,
+            name: fullName.isNotEmpty ? fullName : 'Unnamed Student',
+          );
+        }).toList();
+
+        setState(() {
+          _students = fetchedStudents;
+          _selectAll = false;
+        });
+      }
+    } catch (_) {
+      // swallow and fall through to finally
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
-}
 
 
   // Method to handle form submission
@@ -143,25 +169,32 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
     });
   }
 
-  // Method to save attendance (placeholder)
-  void _saveAttendance() {
-    final presentStudents = _students.where((s) => s.isPresent).toList();
-    final absentStudents = _students.where((s) => !s.isPresent).toList();
+  // Method to save attendance to backend
+  Future<void> _saveAttendance() async {
+    if (_selectedDate == null) return;
+    final String dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+    int success = 0;
+    for (final s in _students) {
+      if (s.enrollmentId == 0) continue;
+      final payload = {
+        'enrollment': s.enrollmentId,
+        'date': dateStr,
+        'is_present': s.isPresent,
+      };
+      final resp = await apiClient.post('/organizations/attendance/', payload, includeAuth: true);
+      if (resp.statusCode == 201 || resp.statusCode == 200) {
+        success += 1;
+      }
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Attendance Saved'),
-        content: Text(
-          'Total Students: ${_students.length}\n'
-          'Present: ${presentStudents.length}\n'
-          'Absent: ${absentStudents.length}',
-        ),
+        content: Text('Saved $success/${_students.length} records for $dateStr'),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),
           ),
         ],
@@ -188,8 +221,32 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isFormComplete =
-    _selectedSport != null && _selectedBranch != null && _selectedBatch != null && _selectedDate != null;
+    // Read preselected params if provided
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && _selectedBatch == null && _selectedBranch == null && _selectedSport == null) {
+      final int? branchId = args['branchId'] as int?;
+      final int? sportId = args['sportId'] as int?;
+      final int? batchId = args['batchId'] as int?;
+      final String? branchName = args['branchName'] as String?;
+      final String? sportName = args['sportName'] as String?;
+      final String? batchName = args['batchName'] as String?;
+      if (branchId != null) {
+        _selectedBranch = branchId.toString();
+        _selectedBranchName = branchName;
+        _fetchBatches(_selectedBranch!);
+      }
+      if (sportId != null) {
+        // we only store sport name in dropdown; keep id string to display later
+        _selectedSport = sportId.toString();
+        _selectedSportName = sportName;
+      }
+      if (batchId != null) {
+        _selectedBatch = batchId.toString();
+        _selectedBatchName = batchName;
+      }
+    }
+    final bool isPrefilled = _selectedSport != null && _selectedBranch != null && _selectedBatch != null;
+    final bool isFormComplete = isPrefilled && _selectedDate != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -238,53 +295,89 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Sports Dropdown
-                        _DropdownInput(
-                          label: 'Sport',
-                          hint: 'Select Sport',
-                          icon: Icons.sports,
-                          items: (_sports).map<String>((s) => s['name'] as String).toList(), // <-- modified
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedSport = value;
-                              _students = [];
-                            });
-                          },
-                        ),
+                        // Sports (hidden if prefilled)
+                        if (!isPrefilled)
+                          _DropdownInput(
+                            label: 'Sport',
+                            hint: 'Select Sport',
+                            icon: Icons.sports,
+                            items: (_sports).map<String>((s) => s['name'] as String).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedSport = value;
+                                _students = [];
+                              });
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.sports),
+                                const SizedBox(width: 8),
+                                Text(_selectedSportName ?? 'Sport')
+                              ],
+                            ),
+                          ),
 
                         // Branch, Batch, and Attendance Dates
-                        _DropdownInput(
-                          label: 'Branch',
-                          hint: 'Select Branch',
-                          icon: Icons.school,
-                          items: (_branches).map<String>((b) => b['id'].toString()).toList(), // <-- modified
-                          onChanged: (value) async {
-                            setState(() {
-                              _selectedBranch = value;
-                              _selectedBatch = null;
-                              _batches = [];
-                              _students = [];
-                            });
-                            if (value != null) {
-                              await _fetchBatches(value);
-                            }
-                          },
-                        ),
+                        if (!isPrefilled)
+                          _DropdownInput(
+                            label: 'Branch',
+                            hint: 'Select Branch',
+                            icon: Icons.school,
+                            items: (_branches).map<String>((b) => b['id'].toString()).toList(),
+                            onChanged: (value) async {
+                              setState(() {
+                                _selectedBranch = value;
+                                _selectedBatch = null;
+                                _batches = [];
+                                _students = [];
+                              });
+                              if (value != null) {
+                                await _fetchBatches(value);
+                              }
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.school),
+                                const SizedBox(width: 8),
+                                Text(_selectedBranchName ?? 'Branch')
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 20),
 
                         // Batch Dropdown  (dynamic)
-                        _DropdownInput(
-                          label: 'Batch',
-                          hint: 'Select Batch',
-                          icon: Icons.group_work,
-                          items: (_batches).map<String>((b) => b['id'].toString()).toList(), // <-- modified
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedBatch = value;
-                              _students = [];
-                            });
-                          },
-                        ),
+                        if (!isPrefilled)
+                          _DropdownInput(
+                            label: 'Batch',
+                            hint: 'Select Batch',
+                            icon: Icons.group_work,
+                            items: (_batches).map<String>((b) => b['id'].toString()).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedBatch = value;
+                                _students = [];
+                              });
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.group_work),
+                                const SizedBox(width: 8),
+                                Text(_selectedBatchName ?? 'Batch')
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 20),
 
                         // Date Picker
@@ -331,8 +424,11 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
                           const Center(child: CircularProgressIndicator())
                         else if (_students.isNotEmpty)
                           SingleChildScrollView(
-                            scrollDirection: Axis.vertical,
-                            child: _buildAttendanceTable(),
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 600),
+                              child: _buildAttendanceTable(),
+                            ),
                           ),
 
                         // Adding some space at the bottom to prevent overflow
@@ -369,9 +465,7 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
         ),
 
         // Attendance Data Table
-        SizedBox(
-          width: double.infinity,
-          child: DataTable(
+        DataTable(
             columns: const [
               DataColumn(label: Text('Sr. No.')),
               DataColumn(label: Text('Present')),
@@ -394,18 +488,17 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
               );
             }).toList(),
           ),
-        ),
 
         const SizedBox(height: 20),
 
-        // Save Attendance Button
-        SizedBox(
-          width: double.infinity,
+        // Save Attendance Button (avoid infinite width inside horizontal scroller)
+        Align(
+          alignment: Alignment.centerRight,
           child: ElevatedButton(
             onPressed: _saveAttendance,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF006C62),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8.0),
               ),

@@ -303,3 +303,29 @@ class StudentEnrollmentSerializer(serializers.Serializer):
             'student': student,
             'enrollment': enrollment
         }
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Attendance model for reporting.
+    """
+    student_name = serializers.CharField(source='student.first_name', read_only=True)
+    student_last_name = serializers.CharField(source='student.last_name', read_only=True)
+    batch_name = serializers.CharField(source='batch.name', read_only=True)
+
+    is_present = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendance
+        fields = [
+            'id', 'date', 'is_present', 'enrollment', 'batch', 'student', 'organization',
+            'student_name', 'student_last_name', 'batch_name'
+        ]
+        read_only_fields = [
+            'id', 'organization', 'student', 'batch',
+            'student_name', 'student_last_name', 'batch_name'
+        ]
+
+    def get_is_present(self, obj):
+        # Presence is implied by existence of record
+        return True

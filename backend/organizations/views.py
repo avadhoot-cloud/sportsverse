@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from .models import Organization, Sport, Branch, Batch, Enrollment, Attendance
 from .serializers import (OrganizationSerializer, SportSerializer, BranchSerializer, 
                           BatchSerializer, EnrollmentSerializer, StudentProfileSerializer, 
-                          StudentEnrollmentSerializer)
+                          StudentEnrollmentSerializer, AttendanceSerializer)
 from accounts.models import StudentProfile
 
 class SportListView(generics.ListAPIView):
@@ -225,3 +225,62 @@ class StudentEnrollmentCreateView(generics.CreateAPIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AttendanceListView(generics.ListCreateAPIView):
+    """
+    API endpoint to list attendance records with optional filters.
+    Filters:
+      - student: student id
+      - batch: batch id
+      - start_date, end_date: date range
+    """
+    serializer_class = AttendanceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'academy_admin_profile'):
+            return Attendance.objects.none()
+
+        queryset = Attendance.objects.filter(
+            organization=self.request.user.academy_admin_profile.organization
+        ).select_related('student__user', 'batch', 'enrollment')
+
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+
+        batch_id = self.request.query_params.get('batch')
+        if batch_id:
+            queryset = queryset.filter(batch_id=batch_id)
+
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+
+        return queryset.order_by('date')
+
+    def perform_create(self, serializer):
+        # Only admins of the organization can create
+        if not hasattr(self.request.user, 'academy_admin_profile'):
+            raise PermissionError("Only Academy Admins can create attendance records.")
+
+        # Expect enrollment id in data; derive related fields
+        enrollment_id = self.request.data.get('enrollment')
+        if not enrollment_id:
+            raise ValueError('enrollment is required')
+        enrollment = get_object_or_404(Enrollment, pk=enrollment_id)
+
+        # Ensure enrollment belongs to admin's organization
+        organization = self.request.user.academy_admin_profile.organization
+        if enrollment.organization != organization:
+            raise PermissionError('Cannot mark attendance outside your organization')
+
+        serializer.save(
+            organization=organization,
+            batch=enrollment.batch,
+            student=enrollment.student
+        )

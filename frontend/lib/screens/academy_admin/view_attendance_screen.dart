@@ -15,13 +15,16 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
   // NEW -- dropdown selections
   String? _selectedBranch;
   String? _selectedBatch;
-  String? _selectedStudent;
+  String? _selectedBranchName;
+  String? _selectedBatchName;
+  String? _selectedStudentId;
+  String? _selectedStudentName;
   String? _selectedTimeline;
 
   // NEW -- dynamic lists to populate dropdowns
   List<dynamic> _branches = [];
   List<dynamic> _batches = [];
-  List<dynamic> _students = [];
+  List<Map<String, String>> _students = [];
 
   // NEW -- attendance records
   List<dynamic> _attendanceRecords = [];
@@ -42,42 +45,113 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
   }
 
   Future<void> _fetchBatches(String branchId) async {
-    final response =
-        await apiClient.get('/organizations/batches/?branch=$branchId');
-    if (response.statusCode == 200) {
+    try {
+      final response =
+          await apiClient.get('/organizations/batches/?branch=$branchId');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          _batches = decoded is List
+              ? decoded
+              : (decoded is Map && decoded['results'] is List
+                  ? List<dynamic>.from(decoded['results'])
+                  : <dynamic>[]);
+        });
+      }
+    } catch (_) {
       setState(() {
-        _batches = jsonDecode(response.body);
+        _batches = [];
       });
     }
   }
 
   Future<void> _fetchStudents(String batchId) async {
-    final response =
-        await apiClient.get('/organizations/enrollments/?batch=$batchId');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      // enrollment endpoint returns enrollment, so we extract student name
+    try {
+      final response =
+          await apiClient.get('/organizations/enrollments/?batch=$batchId');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List<dynamic> items = decoded is List
+            ? decoded
+            : (decoded is Map && decoded['results'] is List
+                ? List<dynamic>.from(decoded['results'])
+                : <dynamic>[]);
+        setState(() {
+          _students = items.map<Map<String, String>>((e) {
+            if (e is! Map) return {'id': '', 'name': 'Unnamed Student'};
+            final dynamic studentField = e['student'];
+            if (studentField is Map) {
+              final id = (studentField['id'] ?? '').toString();
+              final first = (studentField['first_name'] ?? '').toString();
+              final last = (studentField['last_name'] ?? '').toString();
+              final name = (first + ' ' + last).trim();
+              return {'id': id, 'name': name.isNotEmpty ? name : 'Unnamed Student'};
+            }
+            // Fallback to flat fields from EnrollmentSerializer
+            final id = (e['student'] ?? '').toString();
+            final first = (e['student_name'] ?? '').toString();
+            final last = (e['student_last_name'] ?? '').toString();
+            final name = (first + ' ' + last).trim();
+            return {'id': id, 'name': name.isNotEmpty ? name : 'Unnamed Student'};
+          }).toList();
+        });
+      }
+    } catch (_) {
       setState(() {
-        _students =
-            data.map((e) => e['student']).toList(); // list of student objects
+        _students = [];
       });
     }
   }
 
   Future<void> _viewAttendance() async {
-    // NOTE: normally you'd pass studentId and timeline to your backend
-    final response = await apiClient.get(
-        '/organizations/attendance/?student=$_selectedStudent&batch=$_selectedBatch');
-    if (response.statusCode == 200) {
+    setState(() {
+      _showReport = false;
+      _attendanceRecords = [];
+    });
+    try {
+      final response = await apiClient.get(
+          '/organizations/attendance/?student=' + (_selectedStudentId ?? '') + '&batch=' + (_selectedBatch ?? ''));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          _attendanceRecords = decoded is List
+              ? decoded
+              : (decoded is Map && decoded['results'] is List
+                  ? List<dynamic>.from(decoded['results'])
+                  : <dynamic>[]);
+          _showReport = true;
+        });
+      }
+    } catch (_) {
       setState(() {
-        _attendanceRecords = jsonDecode(response.body);
-        _showReport = true;
+        _showReport = false;
+        _attendanceRecords = [];
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Preselect from arguments once on first build
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && _selectedBranch == null && _selectedBatch == null) {
+      final int? branchId = args['branchId'] as int?;
+      final int? batchId = args['batchId'] as int?;
+      final String? branchName = args['branchName'] as String?;
+      final String? batchName = args['batchName'] as String?;
+      if (branchId != null) {
+        _selectedBranch = branchId.toString();
+        _selectedBranchName = branchName;
+        _fetchBatches(_selectedBranch!);
+      }
+      if (batchId != null) {
+        _selectedBatch = batchId.toString();
+        _selectedBatchName = batchName;
+        // ensure students are loaded when batch is prefilled
+        _fetchStudents(_selectedBatch!);
+      }
+    }
+    final bool isPrefilled = _selectedBranch != null && _selectedBatch != null;
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -122,51 +196,76 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ---- BRANCH DROPDOWN (dynamic)
-                        _DropdownInput(
-                          label: 'Branch',
-                          hint: 'Select Branch',
-                          icon: Icons.school,
-                          items: _branches
-                              .map<String>((b) => b['id'].toString())
-                              .toList(),
-                          onChanged: (value) async {
-                            setState(() {
-                              _selectedBranch = value;
-                              _selectedBatch = null;
-                              _selectedStudent = null;
-                              _batches = [];
-                              _students = [];
-                              _showReport = false;
-                              _attendanceRecords = [];
-                            });
-                            if (value != null) {
-                              await _fetchBatches(value);
-                            }
-                          },
-                        ),
+                        // ---- BRANCH (hide if prefilled)
+                        if (!isPrefilled)
+                          _DropdownInput(
+                            label: 'Branch',
+                            hint: 'Select Branch',
+                            icon: Icons.school,
+                            items: _branches
+                                .map<String>((b) => b['id'].toString())
+                                .toList(),
+                            onChanged: (value) async {
+                              setState(() {
+                                _selectedBranch = value;
+                                _selectedBatch = null;
+                                _selectedStudentId = null;
+                                _selectedStudentName = null;
+                                _batches = [];
+                                _students = [];
+                                _showReport = false;
+                                _attendanceRecords = [];
+                              });
+                              if (value != null) {
+                                await _fetchBatches(value);
+                              }
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.school),
+                                const SizedBox(width: 8),
+                                Text(_selectedBranchName ?? 'Branch')
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 20),
-                        // ---- BATCH DROPDOWN (dynamic)
-                        _DropdownInput(
-                          label: 'Batch',
-                          hint: 'Select Batch',
-                          icon: Icons.group,
-                          items: _batches
-                              .map<String>((b) => b['id'].toString())
-                              .toList(),
-                          onChanged: (value) async {
-                            setState(() {
-                              _selectedBatch = value;
-                              _selectedStudent = null;
-                              _students = [];
-                              _showReport = false;
-                              _attendanceRecords = [];
-                            });
-                            if (value != null) {
-                              await _fetchStudents(value);
-                            }
-                          },
-                        ),
+                        if (!isPrefilled)
+                          _DropdownInput(
+                            label: 'Batch',
+                            hint: 'Select Batch',
+                            icon: Icons.group,
+                            items: _batches
+                                .map<String>((b) => b['id'].toString())
+                                .toList(),
+                            onChanged: (value) async {
+                              setState(() {
+                                _selectedBatch = value;
+                                _selectedStudentId = null;
+                                _selectedStudentName = null;
+                                _students = [];
+                                _showReport = false;
+                                _attendanceRecords = [];
+                              });
+                              if (value != null) {
+                                await _fetchStudents(value);
+                              }
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.group),
+                                const SizedBox(width: 8),
+                                Text(_selectedBatchName ?? 'Batch')
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 20),
                         // ---- STUDENT DROPDOWN (dynamic)
                         _DropdownInput(
@@ -174,12 +273,15 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
                           hint: 'Select Student',
                           icon: Icons.person,
                           items: _students
-                              .map<String>((s) =>
-                                  '${s['first_name']} ${s['last_name']}')
+                              .map<String>((s) => s['name'] ?? 'Unnamed Student')
                               .toList(),
                           onChanged: (value) {
                             setState(() {
-                              _selectedStudent = value;
+                              _selectedStudentName = value;
+                              final match = _students.firstWhere(
+                                  (m) => m['name'] == value,
+                                  orElse: () => {'id': '', 'name': ''});
+                              _selectedStudentId = match['id'];
                               _showReport = false;
                               _attendanceRecords = [];
                             });
@@ -204,7 +306,7 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
                         const SizedBox(height: 20),
                         GestureDetector(
                           onTap: (_selectedBatch != null &&
-                                  _selectedStudent != null)
+                                  _selectedStudentId != null && (_selectedStudentId ?? '').isNotEmpty)
                               ? _viewAttendance
                               : null,
                           child: Container(
@@ -212,7 +314,7 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
                             padding: const EdgeInsets.all(16.0),
                             decoration: BoxDecoration(
                               color: (_selectedBatch != null &&
-                                      _selectedStudent != null)
+                                      _selectedStudentId != null && (_selectedStudentId ?? '').isNotEmpty)
                                   ? const Color(0xFF006C62)
                                   : Colors.grey,
                               borderRadius: BorderRadius.circular(8.0),
@@ -264,7 +366,7 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
             ),
           ),
           child: Text(
-            'Attendance Records for $_selectedStudent',
+            'Attendance Records for ${_selectedStudentName ?? 'Student'}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -273,8 +375,8 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           child: DataTable(
             columns: const [
               DataColumn(label: Text('No.')),

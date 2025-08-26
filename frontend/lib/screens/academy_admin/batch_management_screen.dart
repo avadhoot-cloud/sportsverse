@@ -300,9 +300,6 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
-    if (isEditing) {
-      _populateFields();
-    }
   }
 
   Future<void> _loadInitialData() async {
@@ -316,6 +313,11 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
         sports = loadedSports;
         _dataLoading = false;
       });
+
+      // Only populate once data is available to avoid empty list errors
+      if (isEditing) {
+        _populateFields();
+      }
     } catch (e) {
       setState(() {
         _dataError = e.toString();
@@ -331,14 +333,18 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
       _isActive = widget.batch!.isActive;
 
       // Find selected branch and sport
-      _selectedBranch = branches.firstWhere(
-        (branch) => branch.id == widget.batch!.branchId,
-        orElse: () => branches.first,
-      );
-      _selectedSport = sports.firstWhere(
-        (sport) => sport.id == widget.batch!.sportId,
-        orElse: () => sports.first,
-      );
+      if (branches.isNotEmpty) {
+        _selectedBranch = branches.firstWhere(
+          (branch) => branch.id == widget.batch!.branchId,
+          orElse: () => branches.first,
+        );
+      }
+      if (sports.isNotEmpty) {
+        _selectedSport = sports.firstWhere(
+          (sport) => sport.id == widget.batch!.sportId,
+          orElse: () => sports.first,
+        );
+      }
 
       // Parse schedule
       _selectedDays = widget.batch!.scheduleDays;

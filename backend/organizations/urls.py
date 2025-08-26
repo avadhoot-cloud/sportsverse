@@ -11,7 +11,8 @@ from .views import (
     EnrollmentRetrieveUpdateDestroyView,
     StudentListCreateView,
     StudentRetrieveUpdateDestroyView,
-    StudentEnrollmentCreateView
+    StudentEnrollmentCreateView,
+    AttendanceListView
 )
 
 urlpatterns = [
@@ -36,4 +37,7 @@ urlpatterns = [
     
     # Combined student + enrollment creation (Academy Admin only)
     path('student-enrollments/', StudentEnrollmentCreateView.as_view(), name='student-enrollment-create'),
+
+    # Attendance reporting (Academy Admin only)
+    path('attendance/', AttendanceListView.as_view(), name='attendance-list'),
 ]

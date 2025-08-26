@@ -220,6 +220,23 @@ class AdminDashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildStatCard(
                     context,
+                    'Attendance',
+                    'Quick flow',
+                    Icons.checklist,
+                    const Color(0xFF06beb6),
+                    () => Navigator.pushNamed(context, '/attendance/branches'),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
                     'Students',
                     'Enroll',
                     Icons.school,
@@ -230,6 +247,8 @@ class AdminDashboardScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 20),
+                const Expanded(child: SizedBox.shrink()),
               ],
             ),
             
