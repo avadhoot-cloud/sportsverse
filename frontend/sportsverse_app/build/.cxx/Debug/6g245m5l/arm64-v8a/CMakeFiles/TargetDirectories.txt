@@ -1,2 +1,0 @@
-C:/Users/Admin/Documents/Apna_Website/sportsverse/frontend/sportsverse_app/build/.cxx/Debug/6g245m5l/arm64-v8a/CMakeFiles/edit_cache.dir
-C:/Users/Admin/Documents/Apna_Website/sportsverse/frontend/sportsverse_app/build/.cxx/Debug/6g245m5l/arm64-v8a/CMakeFiles/rebuild_cache.dir
