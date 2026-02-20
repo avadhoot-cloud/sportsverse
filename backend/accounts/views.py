@@ -20,11 +20,174 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .serializers import (RegisterAcademySerializer, LoginSerializer, 
-                          RegisterCoachStudentStaffSerializer, UserSerializer, 
-                          CoachAssignmentSerializer, StudentFinancialsSerializer, StudentListSerializer)
-from .models import CustomUser, AcademyAdminProfile, CoachProfile, StudentProfile
-from organizations.models import Organization
+                           UserSerializer, 
+                           StudentFinancialsSerializer, StudentListSerializer,StudentFeeSerializer)
+from .models import CustomUser, AcademyAdminProfile, StudentProfile
+from organizations.models import Organization,Enrollment, Attendance,Batch, Branch, Sport
 from payments.models import FeeTransaction
+from coaches.models import CoachProfile
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.db.models import Sum
+from rest_framework.decorators import api_view, permission_classes
+from django.utils import timezone
+
+from accounts.models import StudentProfile
+from payments .models import FeeTransaction
+from .serializers import StudentFeeSerializer
+
+class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Filter by the logged-in admin's organization
+        org = request.user.academy_admin_profile.organization
+        
+        return Response({
+            "total_students": StudentProfile.objects.filter(organization=org).count(),
+            "total_coaches": CoachProfile.objects.filter(organization=org).count(),
+            "total_branches": Branch.objects.filter(organization=org).count(),
+            "total_batches": Batch.objects.filter(organization=org).count(),
+        })
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    try:
+        org = request.user.academy_admin_profile.organization
+        return Response({
+            'total_students': StudentProfile.objects.filter(organization=org).count(),
+            'total_coaches': CoachProfile.objects.filter(organization=org).count(),
+            'total_branches': Branch.objects.filter(organization=org).count(),
+            'total_batches': Batch.objects.filter(organization=org).count(),
+        }, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_payment_history(request):
+    try:
+        # Link to the student profile via the authenticated user
+        student_profile = request.user.studentprofile
+        transactions = FeeTransaction.objects.filter(student=student_profile).order_by('-transaction_date')
+        serializer = StudentFeeSerializer(transactions, many=True)
+        return Response(serializer.data)
+    except Exception:
+        return Response({"error": "Student profile not found"}, status=404)
+
+def dummy_view(request):
+    return HttpResponse("Accounts app is working!")
+
+class BatchFinancialsSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        branch_id = request.query_params.get('branch')
+        sport_id = request.query_params.get('sport')
+        batch_id = request.query_params.get('batch')
+
+        if not (branch_id and sport_id and batch_id):
+            return Response({'detail': 'branch, sport and batch are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        batch = get_object_or_404(Batch, pk=batch_id)
+
+        # Permission check
+        if not hasattr(request.user, 'academy_admin_profile'):
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        enrollments = Enrollment.objects.filter(batch=batch, is_active=True).select_related('student')
+
+        students_data = []
+        for enrollment in enrollments:
+            student = enrollment.student
+
+            # Calculate Sessions for display
+            sessions_left = None
+            total_sessions = None
+            if enrollment.enrollment_type == 'SESSION_BASED':
+                total_sessions = enrollment.total_sessions or 0
+                sessions_left = max(0, total_sessions - (enrollment.sessions_attended or 0))
+
+            # Count unpaid transactions
+            unpaid_count = FeeTransaction.objects.filter(enrollment=enrollment, is_paid=False).count()
+
+            # Payment history for this specific student/enrollment
+            transactions = FeeTransaction.objects.filter(student=student, enrollment=enrollment).order_by('-transaction_date')
+            payment_history = [
+                {
+                    'id': t.id,
+                    'amount': float(t.amount),
+                    'transaction_date': t.transaction_date.isoformat() if t.transaction_date else None,
+                    'is_paid': t.is_paid,
+                    'payment_method': t.payment_method,
+                }
+                for t in transactions
+            ]
+
+            students_data.append({
+                'student_id': student.id,
+                'enrollment_id': enrollment.id, # CRITICAL: Needed for the record payment button
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'sessions_left': sessions_left,
+                'total_sessions': total_sessions,
+                'unpaid_sessions': unpaid_count,
+                'payment_history': payment_history,
+                'policy': batch.payment_policy
+            })
+
+        return Response({
+            'batch': {
+                'id': batch.id,
+                'name': batch.name,
+                'payment_policy': batch.payment_policy,
+                'fee_per_session': float(batch.fee_per_session or 0),
+            },
+            'students': students_data,
+        })
+
+class CollectStudentFeeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        student_id = request.data.get('student_id')
+        enrollment_id = request.data.get('enrollment_id')
+        amount = request.data.get('amount')
+        payment_method = request.data.get('payment_method', 'Cash')
+        
+        # 1. Look for an existing unpaid transaction record
+        transaction = FeeTransaction.objects.filter(
+            student_id=student_id, 
+            enrollment_id=enrollment_id, 
+            is_paid=False
+        ).order_by('id').first()
+
+        if transaction:
+            transaction.is_paid = True
+            transaction.amount = amount
+            transaction.payment_method = payment_method
+            transaction.transaction_date = timezone.now()
+            transaction.save()
+        else:
+            enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+
+            transaction = FeeTransaction.objects.create(
+                organization=enrollment.organization,   # ✅ FIXED
+                student_id=student_id,
+                enrollment=enrollment,
+                amount=amount,
+                is_paid=True,
+                payment_method=payment_method,
+                transaction_date=timezone.now()
+            )
+
+        
+        return Response({
+            'status': 'success',
+            'message': 'Payment recorded successfully',
+            'transaction_id': transaction.id
+        })
 
 class RegisterAcademyView(APIView):
     """
@@ -87,6 +250,7 @@ class RegisterAcademyView(APIView):
         
         logger.error(f"Registration validation errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 
 class LoginView(APIView):
     """
@@ -96,13 +260,17 @@ class LoginView(APIView):
     permission_classes = [AllowAny] # Allow anyone to attempt login
 
     def post(self, request):
+        # 1. Print incoming data to terminal for debugging
+        print(f"--- Login Attempt ---")
+        print(f"DEBUG: Data received from Flutter: {request.data}") 
+        
         serializer = LoginSerializer(data=request.data, context={'request': request})
+        
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            # If using session authentication (for web admin), uncomment:
-            # login(request, user)
+            print(f"DEBUG: Serializer Valid. User: {user.username}, Type: {user.user_type}")
 
-            # For token authentication (common for APIs/Flutter)
+            # Generate or Retrieve Token
             token, created = Token.objects.get_or_create(user=user)
 
             # Get associated profile details based on user_type
@@ -136,19 +304,19 @@ class LoginView(APIView):
                         'organization_name': user.staff_profile.organization.academy_name
                     }
             
-            # For students, return StudentProfile data instead of CustomUser data
+            # Prepare User Data for Response
             if user.user_type == 'STUDENT' and hasattr(user, 'student_profile'):
                 student = user.student_profile
                 user_data = {
                     'id': student.id,
-                    'username': user.username,  # From CustomUser (for authentication)
+                    'username': user.username,
                     'email': student.email,
                     'first_name': student.first_name,
                     'last_name': student.last_name,
                     'phone_number': student.phone_number,
                     'gender': student.gender,
                     'date_of_birth': student.date_of_birth.isoformat() if student.date_of_birth else None,
-                    'user_type': user.user_type,  # From CustomUser (for authentication)
+                    'user_type': user.user_type,
                     'address': student.address,
                     'parent_name': student.parent_name,
                     'parent_phone_number': student.parent_phone_number,
@@ -156,7 +324,6 @@ class LoginView(APIView):
                     'profile_photo': f"{request.build_absolute_uri('/')[:-1]}{student.profile_photo.url}" if student.profile_photo else None,
                 }
             else:
-                # For other user types, use CustomUser data
                 user_data = UserSerializer(user).data
             
             return Response({
@@ -165,44 +332,10 @@ class LoginView(APIView):
                 "profile_details": profile_data,
                 "must_change_password": user.must_change_password
             }, status=status.HTTP_200_OK)
+
+        # 2. If login fails, print the EXACT error to the terminal
+        print(f"❌ DEBUG: Serializer Errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class RegisterCoachStudentStaffView(APIView):
-    """
-    API endpoint for an authenticated Academy Admin to register Coaches, Students, or Staff
-    within their organization.
-    """
-    permission_classes = [IsAuthenticated] # Only authenticated users can access this
-    # You might add a custom permission here to ensure only Academy Admins can use this
-    # e.g., permission_classes = [IsAuthenticated, IsAcademyAdmin]
-
-    def post(self, request):
-        # Log incoming data for debugging
-        logger.info(f"User registration request data: {request.data}")
-        
-        # Ensure the logged-in user is an Academy Admin
-        if not hasattr(request.user, 'academy_admin_profile'):
-            return Response({"detail": "Only Academy Admins can register other users."},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        serializer = RegisterCoachStudentStaffSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
-                logger.info(f"User {user.username} registered successfully as {user.user_type}")
-                return Response({
-                    "message": f"{user.user_type} user registered successfully.",
-                    "user_id": user.id,
-                    "username": user.username
-                }, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                logger.error(f"Error creating user: {str(e)}")
-                return Response({
-                    "detail": f"Error creating user: {str(e)}"
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            logger.error(f"User registration validation errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PasswordResetRequestView(APIView):
@@ -368,50 +501,6 @@ class ChangePasswordView(APIView):
             'message': 'Password changed successfully'
         }, status=status.HTTP_200_OK)
 
-class CoachListView(APIView):
-    """
-    API endpoint for Academy Admin to list coaches in their organization.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if not hasattr(request.user, 'academy_admin_profile'):
-            return Response({"detail": "Only Academy Admins can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-
-        organization = request.user.academy_admin_profile.organization
-        coaches = CoachProfile.objects.filter(organization=organization).select_related('user')
-        
-        serializer = CoachAssignmentSerializer(coaches, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class CoachAssignmentView(APIView):
-    """
-    API endpoint for Academy Admin to assign branches to coaches.
-    PUT: Update coach's branch assignments
-    """
-    permission_classes = [IsAuthenticated]
-
-    def put(self, request, coach_id):
-        if not hasattr(request.user, 'academy_admin_profile'):
-            return Response({"detail": "Only Academy Admins can assign coaches."}, status=status.HTTP_403_FORBIDDEN)
-
-        organization = request.user.academy_admin_profile.organization
-        
-        try:
-            coach_profile = CoachProfile.objects.get(id=coach_id, organization=organization)
-        except CoachProfile.DoesNotExist:
-            return Response({"detail": "Coach not found in your organization."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = CoachAssignmentSerializer(coach_profile, data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                "message": "Coach branch assignments updated successfully.",
-                "coach": serializer.data
-            }, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class StudentFinancialsView(generics.RetrieveAPIView):
     """
@@ -1008,6 +1097,7 @@ class TrainFaceRecognitionModelView(APIView):
             import traceback
             print(f"🧠 Backend: Traceback: {traceback.format_exc()}")
             return Response({'error': f'Model training error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
 
 
 class FaceRecognitionAttendanceView(APIView):

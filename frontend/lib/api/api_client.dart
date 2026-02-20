@@ -8,15 +8,29 @@ class ApiClient {
   // For Android emulator, use 10.0.2.2
   // For iOS simulator, use 127.0.0.1 or localhost
   // For physical device, use your machine's IP address
-  static const String baseUrl = 'http://192.168.1.133:2000';
+//static const String baseUrl = 'http://127.0.0.1:8000'; 
+ //static const String baseUrl = 'http://192.168.29.245:8000';
   //static const String baseUrl = 'http://192.168.29.245:8000';
+     static const String baseUrl = 'http://192.168.1.33:8000';
 
+// 192.168.0.115-- madhura
   String? _token;
+  bool _isInitialized = false; // Added to track initialization
 
   // Initialize token from SharedPreferences
   Future<void> init() async {
+    if (_isInitialized) return;
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
+    _isInitialized = true;
+    print("🔑 ApiClient Initialized. Token: ${_token != null ? 'Found' : 'Not Found'}");
+  }
+
+  // New helper to ensure we don't send a request before the token is loaded
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await init();
+    }
   }
 
   void setToken(String? token) {
@@ -54,6 +68,7 @@ class ApiClient {
     Map<String, dynamic> body, {
     bool includeAuth = true,
   }) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     return http.post(
       url,
@@ -63,6 +78,7 @@ class ApiClient {
   }
 
   Future<http.Response> get(String path, {bool includeAuth = true}) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     return http.get(url, headers: _getHeaders(includeAuth: includeAuth));
   }
@@ -72,6 +88,7 @@ class ApiClient {
     Map<String, dynamic> body, {
     bool includeAuth = true,
   }) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     return http.put(
       url,
@@ -81,6 +98,7 @@ class ApiClient {
   }
 
   Future<http.Response> delete(String path, {bool includeAuth = true}) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     return http.delete(url, headers: _getHeaders(includeAuth: includeAuth));
   }
@@ -90,6 +108,7 @@ class ApiClient {
     Map<String, dynamic> body, {
     bool includeAuth = true,
   }) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     return http.patch(
       url,
@@ -104,6 +123,7 @@ class ApiClient {
     http.MultipartFile? file,
     bool includeAuth = true,
   }) async {
+    await _ensureInitialized(); // Added check
     final url = Uri.parse('$baseUrl$path');
     var request = http.MultipartRequest('POST', url);
     request.headers.addAll(
@@ -118,28 +138,17 @@ class ApiClient {
 
   Future<http.Response> uploadFile(String path, String filePath) async {
     try {
+      await _ensureInitialized(); // Added check
       print('📤 Uploading file: $filePath to $path');
       final url = Uri.parse('$baseUrl$path');
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll(_getHeaders(includeAuth: true, isMultiPart: true));
       
       print('📤 Headers: ${request.headers}');
-      
-      // Add the file
       request.files.add(await http.MultipartFile.fromPath('profile_photo', filePath));
       
-      print('📤 Files added: ${request.files.length}');
-      
-      // Send the request
       final streamedResponse = await request.send();
-      
-      print('📤 Streamed response status: ${streamedResponse.statusCode}');
-      
-      // Convert StreamedResponse to Response
       final response = await http.Response.fromStream(streamedResponse);
-      print('📤 Final response status: ${response.statusCode}');
-      print('📤 Final response body: ${response.body}');
-      
       return response;
     } catch (e) {
       print('📤 Upload file error: $e');
@@ -149,34 +158,20 @@ class ApiClient {
 
   Future<http.Response> uploadFileWithData(String path, String filePath, String fileFieldName, Map<String, dynamic> formData) async {
     try {
+      await _ensureInitialized(); // Added check
       print('📤 Uploading file with data: $filePath to $path');
       final url = Uri.parse('$baseUrl$path');
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll(_getHeaders(includeAuth: true, isMultiPart: true));
       
-      print('📤 Headers: ${request.headers}');
-      
-      // Add the file
       request.files.add(await http.MultipartFile.fromPath(fileFieldName, filePath));
       
-      // Add form data
       formData.forEach((key, value) {
         request.fields[key] = value.toString();
       });
       
-      print('📤 Files added: ${request.files.length}');
-      print('📤 Form data: $formData');
-      
-      // Send the request
       final streamedResponse = await request.send();
-      
-      print('📤 Streamed response status: ${streamedResponse.statusCode}');
-      
-      // Convert StreamedResponse to Response
       final response = await http.Response.fromStream(streamedResponse);
-      print('📤 Final response status: ${response.statusCode}');
-      print('📤 Final response body: ${response.body}');
-      
       return response;
     } catch (e) {
       print('📤 Upload file with data error: $e');
@@ -186,29 +181,16 @@ class ApiClient {
 
   Future<http.Response> uploadFileWithFieldName(String path, String filePath, String fieldName) async {
     try {
+      await _ensureInitialized(); // Added check
       print('📤 Uploading file with custom field name: $filePath to $path');
       final url = Uri.parse('$baseUrl$path');
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll(_getHeaders(includeAuth: true, isMultiPart: true));
       
-      print('📤 Headers: ${request.headers}');
-      
-      // Add the file with custom field name
       request.files.add(await http.MultipartFile.fromPath(fieldName, filePath));
       
-      print('📤 Files added: ${request.files.length}');
-      print('📤 Field name: $fieldName');
-      
-      // Send the request
       final streamedResponse = await request.send();
-      
-      print('📤 Streamed response status: ${streamedResponse.statusCode}');
-      
-      // Convert StreamedResponse to Response
       final response = await http.Response.fromStream(streamedResponse);
-      print('📤 Final response status: ${response.statusCode}');
-      print('📤 Final response body: ${response.body}');
-      
       return response;
     } catch (e) {
       print('📤 Upload file with custom field name error: $e');

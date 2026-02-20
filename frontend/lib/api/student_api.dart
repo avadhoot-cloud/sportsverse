@@ -188,6 +188,22 @@ class StudentApi {
     }
   }
 
+  // Get staff list associated with student's academy/batches
+  static Future<List<dynamic>> getStaffList() async {
+    try {
+      final response = await apiClient.get('$_basePath/staff/');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data is List ? data : (data['results'] ?? []);
+      } else {
+        throw Exception('Failed to load staff list: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error loading staff list: $e');
+    }
+  }
+
   // Get enrollment details
   static Future<StudentEnrollment> getEnrollmentDetails(int enrollmentId) async {
     try {

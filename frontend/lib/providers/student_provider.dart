@@ -1,31 +1,52 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/student_api.dart';
 import 'package:sportsverse_app/models/student_models.dart';
 
-class StudentProvider with ChangeNotifier {
-  // State variables
-  bool _isLoading = false;
-  String? _error;
+// Dynamically mapped Staff model - No more hardcoded names
+class StaffMember {
+  final String id;
+  final String name;
+  final String? role;
   
+  StaffMember({required this.id, required this.name, this.role});
+
+  factory StaffMember.fromJson(Map<String, dynamic> json) {
+    return StaffMember(
+      id: json['id'].toString(),
+      name: json['full_name'] ?? 'Staff',
+      role: json['role'] ?? 'Coach',
+    );
+  }
+}
+
+class StudentProvider with ChangeNotifier {
+  // --- State Variables ---
+  bool _isLoading = false;
+  String? _error; 
+
   // Dashboard data
   StudentDashboardData? _dashboardData;
   
-  // Enrollments
+  // Staff & Enrollments
+  List<StaffMember> _staffList = [];
   List<StudentEnrollment> _currentEnrollments = [];
   List<StudentEnrollment> _previousEnrollments = [];
   
   // Attendance
   List<StudentAttendance> _attendanceRecords = [];
   Map<int, List<StudentAttendance>> _attendanceByEnrollment = {};
-  
+
   // Payments
   List<StudentPayment> _payments = [];
   Map<String, dynamic> _paymentSummary = {};
   Map<String, dynamic> _attendanceSummary = {};
 
-  // Getters
+  // --- Getters ---
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  List<StaffMember> get staffList => _staffList;
   StudentDashboardData? get dashboardData => _dashboardData;
   List<StudentEnrollment> get currentEnrollments => _currentEnrollments;
   List<StudentEnrollment> get previousEnrollments => _previousEnrollments;
@@ -35,7 +56,7 @@ class StudentProvider with ChangeNotifier {
   Map<String, dynamic> get paymentSummary => _paymentSummary;
   Map<String, dynamic> get attendanceSummary => _attendanceSummary;
 
-  // Error handling
+  // --- State Helpers ---
   void _setError(String? error) {
     _error = error;
     notifyListeners();
@@ -46,22 +67,34 @@ class StudentProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Loading state
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
   }
 
-  // Load dashboard data
+  // --- Dynamic Data Methods ---
+
+  /// Fetches real staff from the organization folder dynamically
+  Future<void> fetchStaffList() async {
+    try {
+      final List<dynamic> data = await StudentApi.getStaffList();
+      _staffList = data.map((item) => StaffMember.fromJson(item)).toList();
+      notifyListeners();
+    } catch (e) {
+      _setError("Failed to load staff: ${e.toString()}");
+    }
+  }
+
   Future<void> loadDashboardData() async {
     _setLoading(true);
     _setError(null);
-    
     try {
       _dashboardData = await StudentApi.getDashboardData();
-      _currentEnrollments = _dashboardData!.currentEnrollments;
-      _previousEnrollments = _dashboardData!.previousEnrollments;
-      _attendanceRecords = _dashboardData!.recentAttendance;
+      if (_dashboardData != null) {
+        _currentEnrollments = _dashboardData!.currentEnrollments;
+        _previousEnrollments = _dashboardData!.previousEnrollments;
+        _attendanceRecords = _dashboardData!.recentAttendance;
+      }
     } catch (e) {
       _setError(e.toString());
     } finally {
@@ -69,14 +102,11 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Load enrollments
   Future<void> loadEnrollments({String? status}) async {
     _setLoading(true);
     _setError(null);
-    
     try {
       final enrollments = await StudentApi.getEnrollments(status: status);
-      
       if (status == 'active' || status == null) {
         _currentEnrollments = enrollments.where((e) => e.isActive).toList();
       } else if (status == 'completed') {
@@ -89,7 +119,6 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Load attendance records
   Future<void> loadAttendance({
     int? enrollmentId,
     DateTime? startDate,
@@ -97,17 +126,13 @@ class StudentProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     _setError(null);
-    
     try {
       final attendance = await StudentApi.getAttendance(
         enrollmentId: enrollmentId,
         startDate: startDate,
         endDate: endDate,
       );
-      
       _attendanceRecords = attendance;
-      
-      // Group by enrollment
       _attendanceByEnrollment.clear();
       for (var record in attendance) {
         if (!_attendanceByEnrollment.containsKey(record.enrollmentId)) {
@@ -122,11 +147,9 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Load payments
   Future<void> loadPayments({int? enrollmentId}) async {
     _setLoading(true);
     _setError(null);
-    
     try {
       _payments = await StudentApi.getPayments(enrollmentId: enrollmentId);
     } catch (e) {
@@ -136,11 +159,9 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Load payment summary
   Future<void> loadPaymentSummary() async {
     _setLoading(true);
     _setError(null);
-    
     try {
       _paymentSummary = await StudentApi.getPaymentSummary();
     } catch (e) {
@@ -150,12 +171,11 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Load attendance summary
   Future<void> loadAttendanceSummary() async {
     _setLoading(true);
     _setError(null);
-    
     try {
+      // This is now dynamic and fetches from your Organizations backend
       _attendanceSummary = await StudentApi.getAttendanceSummary();
     } catch (e) {
       _setError(e.toString());
@@ -164,7 +184,6 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Process payment
   Future<bool> processPayment({
     required int enrollmentId,
     required double amount,
@@ -173,7 +192,6 @@ class StudentProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     _setError(null);
-    
     try {
       await StudentApi.processPayment(
         enrollmentId: enrollmentId,
@@ -181,11 +199,8 @@ class StudentProvider with ChangeNotifier {
         paymentMethod: paymentMethod,
         transactionId: transactionId,
       );
-      
-      // Reload payments after successful payment
       await loadPayments();
       await loadPaymentSummary();
-      
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -195,65 +210,59 @@ class StudentProvider with ChangeNotifier {
     }
   }
 
-  // Get attendance for specific enrollment
+  // --- Utility Methods (RESTORED) ---
+
   List<StudentAttendance> getAttendanceForEnrollment(int enrollmentId) {
     return _attendanceByEnrollment[enrollmentId] ?? [];
   }
 
-  // Get payments for specific enrollment
   List<StudentPayment> getPaymentsForEnrollment(int enrollmentId) {
     return _payments.where((p) => p.enrollmentId == enrollmentId).toList();
   }
 
-  // Check if enrollment has pending payments
   bool hasPendingPayments(int enrollmentId) {
     return _payments.any((p) => p.enrollmentId == enrollmentId && !p.isPaid);
   }
 
-  // Calculate total amount for enrollment
   double calculateEnrollmentAmount(int enrollmentId) {
     return _payments
         .where((p) => p.enrollmentId == enrollmentId)
         .fold(0.0, (sum, p) => sum + p.amount);
   }
 
-  // Calculate paid amount for enrollment
   double calculatePaidAmount(int enrollmentId) {
     return _payments
         .where((p) => p.enrollmentId == enrollmentId && p.isPaid)
         .fold(0.0, (sum, p) => sum + p.amount);
   }
 
-  // Calculate pending amount for enrollment
   double calculatePendingAmount(int enrollmentId) {
     return calculateEnrollmentAmount(enrollmentId) - calculatePaidAmount(enrollmentId);
   }
 
-  // Get attendance percentage for enrollment
   double getAttendancePercentage(int enrollmentId) {
     final attendance = getAttendanceForEnrollment(enrollmentId);
     if (attendance.isEmpty) return 0.0;
-    
     final presentCount = attendance.where((a) => a.isPresent).length;
     return (presentCount / attendance.length) * 100;
   }
 
-  // Refresh all data
   Future<void> refreshAll() async {
     await Future.wait([
       loadDashboardData(),
       loadAttendanceSummary(),
       loadPaymentSummary(),
+      fetchStaffList(),
     ]);
   }
 
-  // Clear all data
   void clearAll() {
     _dashboardData = null;
     _currentEnrollments.clear();
     _previousEnrollments.clear();
     _attendanceRecords.clear();
     _attendanceByEnrollment.clear();
+    _staffList.clear();
     _payments.clear();
     _paymentSummary.clear();
     _attendanceSummary.clear();

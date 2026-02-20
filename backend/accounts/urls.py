@@ -1,15 +1,15 @@
 # sportsverse/backend/accounts/urls.py
 
 from django.urls import path
+from rest_framework.authtoken.views import obtain_auth_token
+
 from .views import (
     RegisterAcademyView, 
     LoginView, 
-    RegisterCoachStudentStaffView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
     ChangePasswordView,
-    CoachListView,
-    CoachAssignmentView,
+
     StudentFinancialsView,
     StudentListView,
     StudentDashboardView,
@@ -21,20 +21,19 @@ from .views import (
     StudentProfileDebugView,
     StudentFaceEncodingView,
     TrainFaceRecognitionModelView,
-    FaceRecognitionAttendanceView
+    FaceRecognitionAttendanceView,
+    BatchFinancialsSummaryView,
+    CollectStudentFeeView
 )
 
 urlpatterns = [
     path('register-academy/', RegisterAcademyView.as_view(), name='register-academy'),
     path('login/', LoginView.as_view(), name='login'),
-    path('register-user/', RegisterCoachStudentStaffView.as_view(), name='register-coach-student-staff'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
-    
+    path('collect-fee/', CollectStudentFeeView.as_view(), name='collect-fee'),
     # Coach management endpoints
-    path('coaches/', CoachListView.as_view(), name='coach-list'),
-    path('coaches/<int:coach_id>/assign-branches/', CoachAssignmentView.as_view(), name='coach-assignment'),
 
     # Student endpoints
     path('students/', StudentListView.as_view(), name='student-list'),
@@ -49,7 +48,7 @@ urlpatterns = [
     path('profile/photo/', StudentProfilePhotoUploadView.as_view(), name='student-profile-photo'),
     path('profile/debug/', StudentProfileDebugView.as_view(), name='student-profile-debug'),
     path('face-encoding/', StudentFaceEncodingView.as_view(), name='student-face-encoding'),
-    
+    path('batch-financials/', BatchFinancialsSummaryView.as_view(), name='batch-financials'),
     # Academy admin facial recognition endpoints
     path('train-face-model/', TrainFaceRecognitionModelView.as_view(), name='train-face-model'),
     path('face-attendance/', FaceRecognitionAttendanceView.as_view(), name='face-attendance'),

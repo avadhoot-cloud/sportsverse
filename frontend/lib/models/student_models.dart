@@ -94,6 +94,7 @@ class StudentEnrollment {
 
 class StudentAttendance {
   final int id;
+  final String status; // Ensure this is named 'status'
   final int enrollmentId;
   final int batchId;
   final int studentId;
@@ -105,6 +106,7 @@ class StudentAttendance {
   StudentAttendance({
     required this.id,
     required this.enrollmentId,
+    required this.status,
     required this.batchId,
     required this.studentId,
     required this.organizationId,
@@ -116,6 +118,7 @@ class StudentAttendance {
   factory StudentAttendance.fromJson(Map<String, dynamic> json) {
     return StudentAttendance(
       id: json['id'] ?? 0,
+      status: json['status'] ?? 'unknown', // Ensure this matches backend field
       enrollmentId: json['enrollment'] ?? 0,
       batchId: json['batch'] ?? 0,
       studentId: json['student'] ?? 0,
@@ -204,6 +207,7 @@ class StudentDashboardData {
   final String currentEnrollment;
   final int sessionsCompleted;
   final int sessionsRemaining;
+  final String? branchName;        // ADD THIS LINE
   final String enrollmentCycle;
   final List<StudentEnrollment> currentEnrollments;
   final List<StudentEnrollment> previousEnrollments;
@@ -214,6 +218,7 @@ class StudentDashboardData {
     required this.sessionsCompleted,
     required this.sessionsRemaining,
     required this.enrollmentCycle,
+    required this.branchName,        // ADD THIS LINE
     required this.currentEnrollments,
     required this.previousEnrollments,
     required this.recentAttendance,
@@ -225,6 +230,7 @@ class StudentDashboardData {
       sessionsCompleted: json['sessions_completed'] ?? 0,
       sessionsRemaining: json['sessions_remaining'] ?? 0,
       enrollmentCycle: json['enrollment_cycle'] ?? 'N/A',
+      branchName: json['branch_name'] ?? 'N/A', // ADD THIS LINE
       currentEnrollments: (json['current_enrollments'] as List<dynamic>?)
           ?.map((e) => StudentEnrollment.fromJson(e))
           .toList() ?? [],

@@ -13,7 +13,8 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(Sport)
 class SportAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description')
+    list_display = ( 'name', )
+
     search_fields = ('name',)
 
 @admin.register(Branch)

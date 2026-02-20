@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, AcademyAdminProfile, CoachProfile, StudentProfile, StaffProfile
+from .models import CustomUser, AcademyAdminProfile ,StudentProfile
 from organizations.models import Organization, Branch # Required for CoachProfile M2M display
 
 @admin.register(CustomUser)
@@ -26,16 +26,7 @@ class AcademyAdminProfileAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'organization__academy_name')
     list_filter = ('organization',)
 
-@admin.register(CoachProfile)
-class CoachProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'organization', 'display_assigned_branches')
-    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'organization__academy_name')
-    list_filter = ('organization', 'branches') # Allows filtering by assigned branches
-    filter_horizontal = ('branches',) # Provides a nice interface for ManyToMany fields
 
-    def display_assigned_branches(self, obj):
-        return ", ".join([branch.name for branch in obj.branches.all()])
-    display_assigned_branches.short_description = 'Assigned Branches'
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
@@ -48,8 +39,3 @@ class StudentProfileAdmin(admin.ModelAdmin):
         return f"{obj.first_name} {obj.last_name}"
     get_full_name.short_description = 'Student Name'
 
-@admin.register(StaffProfile)
-class StaffProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'organization')
-    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'organization__academy_name')
-    list_filter = ('organization',)

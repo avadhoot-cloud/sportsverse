@@ -6,8 +6,7 @@ import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 import 'package:sportsverse_app/providers/student_provider.dart';
 import 'package:sportsverse_app/screens/academy_admin/coach_dashboard_screen.dart';
-import 'package:sportsverse_app/screens/academy_admin/student_dashboard_screen.dart';
-import 'package:sportsverse_app/screens/student/student_home_screen.dart';
+import 'package:sportsverse_app/screens/student/student_dashboard_screen.dart';
 import 'package:sportsverse_app/screens/auth/login_screen.dart';
 import 'package:sportsverse_app/screens/auth/register_academy_screen.dart';
 import 'package:sportsverse_app/screens/auth/forgot_password_screen.dart';
@@ -102,7 +101,7 @@ class _SportsVerseAppState extends State<SportsVerseApp> {
                     return const CoachDashboardScreen();
                   case 'STUDENT':
                     print('🏠 Routing to Student Home Screen');
-                    return const StudentHomeScreen();
+                    return const StudentDashboardScreen();
                   case 'STAFF':
                     print('🏠 Routing to Staff Dashboard');
                     return const Text(

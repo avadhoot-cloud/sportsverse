@@ -9,6 +9,48 @@ from .serializers import (OrganizationSerializer, SportSerializer, BranchSeriali
                           BatchSerializer, EnrollmentSerializer, StudentProfileSerializer, 
                           StudentEnrollmentSerializer, AttendanceSerializer)
 from accounts.models import StudentProfile
+from rest_framework.views import APIView # <--- THIS WAS MISSING
+
+class BatchAttendanceSummaryView(APIView):
+    def get(self, request):
+        batch_id = request.query_params.get('batch')
+        if not batch_id:
+            return Response({"error": "Batch ID required"}, status=400)
+
+        # Fetch all enrollments for this batch
+        enrollments = Enrollment.objects.filter(batch_id=batch_id)
+        
+        summary_data = []
+        for emp in enrollments:
+            # Calculate stats for this specific student in this batch
+            total_sessions = Attendance.objects.filter(student=emp.student, batch_id=batch_id).count()
+            # RIGHT (Using enrollment and the correct status field)
+            present_count = Attendance.objects.filter(
+            student=emp.student, 
+            batch_id=batch_id, 
+            is_session_deducted=True # Or whatever field you use to mark attendance
+            ).count()            
+            # Avoid division by zero
+            percentage = (present_count / total_sessions * 100) if total_sessions > 0 else 0
+            
+            summary_data.append({
+                "student_id": emp.student.id,
+                "student_name": f"{emp.student.first_name} {emp.student.last_name}",
+                "attendance_percentage": round(percentage, 1),
+                "total_sessions": total_sessions,
+                "present_count": present_count,
+            })
+            
+        return Response(summary_data, status=200)
+
+def get_queryset(self):
+    user = self.request.user
+    if hasattr(user, 'coach_profile'):
+        # Coaches ONLY see students in batches assigned to them
+        assigned_batches = user.coach_profile.assignments.values_list('batch_id', flat=True)
+        return Enrollment.objects.filter(batch_id__in=assigned_batches)
+    return Enrollment.objects.all()
+
 
 class SportListView(generics.ListAPIView):
     """

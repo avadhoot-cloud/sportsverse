@@ -1,5 +1,3 @@
-// sportsverse/frontend/sportsverse_app/lib/providers/auth_provider.dart
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -37,20 +35,29 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String username, String password) async {
+  Future<void> login(String emailOrUsername, String password) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final authResponse = await authApi.login(username, password);
+      // DEBUG: Printing to console to verify what is being sent
+      debugPrint('🚀 AuthProvider: Attempting login for: $emailOrUsername');
+      
+      // We pass the value to authApi.login
+      // Ensure that inside auth_api.dart, the key in the map is 'username'
+      final authResponse = await authApi.login(emailOrUsername, password);
+      
       _currentUser = authResponse.user;
       _token = authResponse.token;
       _profileDetails = authResponse.profileDetails;
       _mustChangePassword = authResponse.mustChangePassword;
       _isLoading = false;
       notifyListeners();
+      
+      debugPrint('✅ AuthProvider: Login successful for ${authResponse.user.username}');
     } catch (e) {
+      debugPrint('❌ AuthProvider Error: $e');
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();

@@ -31,7 +31,7 @@ class Sport(models.Model):
     # This model defines global sports types, not specific to an organization
     # Organizations will link to these
     name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
+   # description = models.TextField(blank=True, null=True)
     icon = models.ImageField(upload_to='sport_icons/', blank=True, null=True) # Optional icon
 
     def __str__(self):

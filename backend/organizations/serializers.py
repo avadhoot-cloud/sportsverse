@@ -14,7 +14,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
 class SportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sport
-        fields = ['id', 'name', 'description', 'icon'] # 'icon' will be the URL of the image
+        fields = ['id', 'name',  'icon'] # 'icon' will be the URL of the image
 
 class BranchSerializer(serializers.ModelSerializer):
     """

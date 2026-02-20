@@ -13,7 +13,8 @@ from .views import (
     StudentRetrieveUpdateDestroyView,
     StudentEnrollmentCreateView,
     AttendanceListView,
-    AttendanceRetrieveUpdateDestroyView
+    AttendanceRetrieveUpdateDestroyView,
+BatchAttendanceSummaryView
 )
 
 urlpatterns = [
@@ -42,4 +43,5 @@ urlpatterns = [
     # Attendance reporting (Academy Admin only)
     path('attendance/', AttendanceListView.as_view(), name='attendance-list'),
     path('attendance/<int:pk>/', AttendanceRetrieveUpdateDestroyView.as_view(), name='attendance-detail'),
+    path('batch-summary/', BatchAttendanceSummaryView.as_view(), name='batch-summary'),
 ]

@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 import 'package:http/http.dart' as http;
 import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/models/user.dart';
@@ -14,10 +15,18 @@ class AuthApi {
   AuthApi(this.apiClient);
 
   Future<AuthResponse> login(String username, String password) async {
+    // DEBUG: See what we are sending
+    debugPrint('📡 API Request: POST /api/accounts/login/');
+    debugPrint('📦 Body: {"username": "$username", "password": "..."}');
+
     final response = await apiClient.post('/api/accounts/login/', {
       'username': username,
       'password': password,
     }, includeAuth: false);
+
+    // DEBUG: See what the server says
+    debugPrint('📥 API Response Status: ${response.statusCode}');
+    debugPrint('📥 API Response Body: ${response.body}');
 
     if (response.statusCode == 200) {
       final authResponse = AuthResponse.fromJson(json.decode(response.body));
@@ -25,9 +34,19 @@ class AuthApi {
       return authResponse;
     } else {
       final errorData = json.decode(response.body);
-      throw Exception(
-        errorData['non_field_errors']?.join(', ') ?? 'Login failed',
-      );
+      
+      // Look for common Django error keys
+      if (errorData is Map) {
+        if (errorData.containsKey('non_field_errors')) {
+          throw Exception(errorData['non_field_errors'].join(', '));
+        } else if (errorData.containsKey('username')) {
+          throw Exception('Username error: ${errorData['username'].join(', ')}');
+        } else if (errorData.containsKey('detail')) {
+          throw Exception(errorData['detail']);
+        }
+      }
+      
+      throw Exception('Login failed. Please check your credentials.');
     }
   }
 
@@ -147,7 +166,6 @@ class AuthApi {
     );
 
     if (response.statusCode == 201) {
-      // Check if response body exists and is not empty
       if (response.body.isEmpty) {
         throw Exception('Empty response from server');
       }
@@ -159,23 +177,19 @@ class AuthApi {
           throw Exception('Invalid response format from server');
         }
 
-        // The Django backend returns: {"message": "...", "user_id": id, "username": "..."}
-        // We'll create a minimal User object since full user data isn't returned
         return User(
           id: responseData['user_id'] ?? 0,
           username: responseData['username'] ?? 'unknown',
-          firstName: firstName, // Use the data we sent
+          firstName: firstName, 
           lastName: lastName,
-          email: email ?? '', // Handle nullable email
+          email: email ?? '', 
           userType: userType,
         );
       } catch (e) {
-        print('DEBUG: Error parsing registration response: $e');
-        print('DEBUG: Response body was: ${response.body}');
+        debugPrint('DEBUG: Error parsing registration response: $e');
         throw Exception('Failed to parse server response: $e');
       }
     } else {
-      // Check if response body exists for error handling
       if (response.body.isEmpty) {
         throw Exception(
           'Registration failed with status ${response.statusCode}',
@@ -185,11 +199,9 @@ class AuthApi {
       try {
         final errorData = json.decode(response.body);
 
-        // Handle specific validation errors
         if (errorData != null && errorData is Map<String, dynamic>) {
           String errorMessage = '';
 
-          // Check for field-specific errors
           if (errorData.containsKey('username')) {
             errorMessage += 'Username: ${errorData['username'].join(', ')}\n';
           }
@@ -206,7 +218,6 @@ class AuthApi {
             errorMessage += errorData['detail'];
           }
 
-          // If no specific errors found, show general message
           if (errorMessage.isEmpty) {
             errorMessage = 'Registration failed. Please check your input.';
           }
@@ -216,8 +227,6 @@ class AuthApi {
           throw Exception('Registration failed. Please try again.');
         }
       } catch (e) {
-        print('DEBUG: Error parsing error response: $e');
-        print('DEBUG: Response body was: ${response.body}');
         throw Exception(
           'Registration failed with status ${response.statusCode}',
         );
@@ -227,14 +236,13 @@ class AuthApi {
 
   Future<void> logout() async {
     apiClient.setToken(null); // Clear token
-    // If you have a logout API endpoint on Django, call it here
   }
 
   Future<List<Sport>> getSports() async {
     final response = await apiClient.get(
       '/api/organizations/sports/',
       includeAuth: false,
-    ); // Sports are public
+    ); 
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
       return data.map((json) => Sport.fromJson(json)).toList();
@@ -243,7 +251,6 @@ class AuthApi {
     }
   }
 
-  /// Request password reset via email
   Future<Map<String, dynamic>> requestPasswordReset(String email) async {
     final response = await apiClient.post('/api/accounts/password-reset/', {
       'email': email,
@@ -257,7 +264,6 @@ class AuthApi {
     }
   }
 
-  /// Confirm password reset with token
   Future<Map<String, dynamic>> confirmPasswordReset({
     required String uid,
     required String token,
@@ -277,7 +283,6 @@ class AuthApi {
     }
   }
 
-  /// Change password for authenticated user
   Future<Map<String, dynamic>> changePassword(
     String currentPassword,
     String newPassword,

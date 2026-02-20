@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
   void _login() async {
+    // 1. Basic validation
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       _showSnackBar('Please enter username/email and password.', Colors.red);
       return;
@@ -26,40 +27,69 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     try {
+      // 2. Perform the login request
       await authProvider.login(
         _usernameController.text,
         _passwordController.text,
       );
 
-      print('🔐 Login completed. Current user: ${authProvider.currentUser?.username}');
-      print('🔐 User type: ${authProvider.currentUser?.userType}');
-      print('🔐 Is loading: ${authProvider.isLoading}');
+      // 3. CRITICAL: Check if the widget is still in the tree before proceeding
+      if (!mounted) return;
+
+      print('🔐 Login request finished. Current user: ${authProvider.currentUser?.username}');
 
       if (authProvider.currentUser != null) {
         _showSnackBar('Login successful!', Colors.green);
-        print('🔐 Navigating to home screen...');
-        // Force navigation by pushing to root and removing all previous routes
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        print('🔐 Navigating based on user role: ${authProvider.currentUser?.userType}');
+
+        // 4. Role-based Navigation
+        String userRole = authProvider.currentUser?.userType ?? 'STUDENT';
+
+        if (userRole == 'STUDENT') {
+          Navigator.of(context).pushNamedAndRemoveUntil('/student-home', (route) => false);
+        } else if (userRole == 'ACADEMY_ADMIN') {
+          Navigator.of(context).pushNamedAndRemoveUntil('/admin-home', (route) => false);
+        } else if (userRole == 'COACH') {
+          Navigator.of(context).pushNamedAndRemoveUntil('/coach-home', (route) => false);
+        } else {
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
+        
       } else {
+        // Handle failed login (wrong credentials)
         print('🔐 Login failed: ${authProvider.errorMessage}');
-        _showSnackBar(authProvider.errorMessage ?? 'Login failed.', Colors.red);
+        _showSnackBar(authProvider.errorMessage ?? 'Login failed. Please check your credentials.', Colors.red);
       }
     } catch (e) {
+      // Handle unexpected exceptions
+      if (!mounted) return;
       print('🔐 Login error: $e');
       _showSnackBar('Login error: $e', Colors.red);
     }
   }
 
   void _showSnackBar(String message, Color color) {
+    // Check mounted because SnackBars depend on Scaffold context
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar(); // Clear existing ones
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(10),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -78,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              // Logo placeholder
+              // Logo section
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -86,28 +116,35 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(50),
                 ),
                 child: Icon(
-                  Icons.sports_soccer, // Example icon
+                  Icons.sports_soccer, 
                   size: 80,
                   color: Colors.blue.shade700,
                 ),
               ),
               const SizedBox(height: 32.0),
+              
+              // Username/Email Field
               TextField(
                 controller: _usernameController,
                 decoration: const InputDecoration(
                   labelText: 'Username or Email',
                   prefixIcon: Icon(Icons.person),
-                  hintText: 'Enter your username or email address',
+                  hintText: 'Enter your username or email',
+                  border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 16.0),
+              
+              // Password Field
               TextField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
+                  border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isPasswordVisible
@@ -121,8 +158,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                 ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _login(),
               ),
               const SizedBox(height: 24.0),
+              
+              // Login Button with Loading State
               Consumer<AuthProvider>(
                 builder: (context, authProvider, child) {
                   return authProvider.isLoading
@@ -130,20 +171,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       : ElevatedButton(
                           onPressed: _login,
                           style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(
-                              double.infinity,
-                              50,
-                            ), // Full width button
+                            minimumSize: const Size(double.infinity, 50),
                             backgroundColor: Colors.blue.shade700,
                             foregroundColor: Colors.white,
                             elevation: 5,
-                            shadowColor: Colors.blue.shade200,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                          child: const Text('Log In'),
+                          child: const Text(
+                            'Log In',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                         );
                 },
               ),
               const SizedBox(height: 20.0),
+              
+              // Navigation Buttons
               TextButton(
                 onPressed: () {
                   Navigator.pushNamed(context, '/register-academy');
@@ -153,10 +198,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: Colors.blue.shade600),
                 ),
               ),
-              // Optionally add a "Forgot Password" link
               TextButton(
                 onPressed: () {
-                  // Navigate to forgot password screen
                   Navigator.pushNamed(context, '/forgot-password');
                 },
                 child: Text(
