@@ -34,7 +34,7 @@ CoachDashboardData _sampleDashboard() => CoachDashboardData(
           batchName: 'Morning Batch A',
           branch: 'Main Branch',
           sport: 'Tennis',
-          scheduleDetails: null,
+          schedule: null,
         ),
       ],
       upcomingSessions: const [

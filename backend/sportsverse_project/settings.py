@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Security ─────────────────────────────────────────────────────────────────
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost,10.75.234.107', cast=Csv())
 
 # ─── Application definition ───────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -75,10 +75,16 @@ WSGI_APPLICATION = "sportsverse_project.wsgi.application"
 # For Flutter mobile development, you may need to allow all origins locally.
 # In production set CORS_ALLOWED_ORIGINS in .env instead.
 _cors_origins = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
-if DEBUG and not _cors_origins:
-    CORS_ALLOW_ALL_ORIGINS = True
+if DEBUG:
+    # In Debug mode, if origins are not explicitly provided, allow all.
+    # If they ARE provided (like localhost or specific IPs), use them.
+    if not _cors_origins:
+        CORS_ALLOW_ALL_ORIGINS = True
+    else:
+        CORS_ALLOWED_ORIGINS = _cors_origins
 else:
     CORS_ALLOWED_ORIGINS = _cors_origins
+
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 DATABASES = {

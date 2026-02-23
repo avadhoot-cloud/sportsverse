@@ -476,6 +476,45 @@ class CoachApi {
     final err = json.decode(response.body);
     throw Exception((err is Map ? err['error'] ?? err['detail'] : null) ?? 'Failed to load match history');
   }
+
+  // ── New: Forecast (simulate rating change before match) ─────────────────────
+
+  Future<Map<String, dynamic>> forecastMatch({
+    required int player1Id,
+    required int player2Id,
+    String format = 'SINGLES',
+    String importance = 'CASUAL',
+  }) async {
+    final response = await apiClient.post(
+      '/api/ratings/forecast/',
+      {
+        'player1_id': player1Id,
+        'player2_id': player2Id,
+        'format': format,
+        'importance': importance,
+      },
+      includeAuth: true,
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    final err = json.decode(response.body);
+    throw Exception((err is Map ? err['error'] ?? err['detail'] : null) ?? 'Forecast failed');
+  }
+
+  // ── New: My rating audit history (for students) ─────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getMyRatingHistory() async {
+    final response = await apiClient.get('/api/ratings/my-history/', includeAuth: true);
+    if (response.statusCode == 200) {
+      return (json.decode(response.body) as List)
+          .map((j) => j as Map<String, dynamic>)
+          .toList();
+    }
+    final err = json.decode(response.body);
+    throw Exception((err is Map ? err['error'] ?? err['detail'] : null) ?? 'Failed to load rating history');
+  }
 }
 
 final coachApi = CoachApi(apiClient);
+

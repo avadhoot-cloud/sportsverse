@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-
-// Existing Imports
+import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 import 'package:sportsverse_app/screens/academy_admin/student_payment_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/pay_salary_screen.dart';
@@ -46,16 +44,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- DYNAMIC DATA FETCHING ---
   Future<Map<String, dynamic>> _fetchStats() async {
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.token;
-
-      final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/accounts/dashboard-stats/'),
-        headers: {
-          'Authorization': 'Token $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await apiClient.get('/api/accounts/dashboard-stats/');
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -84,64 +73,108 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final user = authProvider.currentUser;
     final profile = authProvider.profileDetails;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      body: Row(
-        children: [
-          _buildSidebar(context),
-          Expanded(
-            child: Column(
-              children: [
-                _buildTopHeader(context, authProvider),
-                Expanded(
-                  child: FutureBuilder<Map<String, dynamic>>(
-                    future: _fetchStats(),
-                    builder: (context, snapshot) {
-                      // Handing loading state for the stats specifically
-                      final bool isDataLoading = snapshot.connectionState == ConnectionState.waiting;
-                      final stats = snapshot.data ?? {
-                        'total_students': 0,
-                        'total_coaches': 0,
-                        'total_branches': 0,
-                        'total_batches': 0,
-                      };
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isDesktop = constraints.maxWidth >= 900;
 
-                      return RefreshIndicator(
-                        onRefresh: () async {
-                          setState(() {}); // Trigger rebuild to refetch future
-                        },
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildWelcomeBanner(user, profile),
-                              const SizedBox(height: 32),
-                              _buildStatsGrid(stats, isDataLoading),
-                              const SizedBox(height: 32),
-                              Text(
-                                'Quick Actions',
-                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+        return Scaffold(
+          key: GlobalKey<ScaffoldState>(),
+          backgroundColor: const Color(0xFFF8F9FA),
+          // --- MOBILE DRAWER ---
+          drawer: isDesktop ? null : _buildSidebar(context),
+          appBar: isDesktop 
+            ? null 
+            : _buildMobileAppBar(context, authProvider),
+          body: Row(
+            children: [
+              // --- DESKTOP SIDEBAR ---
+              if (isDesktop) _buildSidebar(context),
+              
+              Expanded(
+                child: Column(
+                  children: [
+                    // --- DESKTOP HEADER ---
+                    if (isDesktop) _buildTopHeader(context, authProvider),
+                    
+                    Expanded(
+                      child: FutureBuilder<Map<String, dynamic>>(
+                        future: _fetchStats(),
+                        builder: (context, snapshot) {
+                          final bool isDataLoading = snapshot.connectionState == ConnectionState.waiting;
+                          final stats = snapshot.data ?? {
+                            'total_students': 0,
+                            'total_coaches': 0,
+                            'total_branches': 0,
+                            'total_batches': 0,
+                          };
+
+                          return RefreshIndicator(
+                            onRefresh: () async {
+                              setState(() {});
+                            },
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.all(isDesktop ? 24 : 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildWelcomeBanner(user, profile, isDesktop),
+                                  const SizedBox(height: 32),
+                                  _buildStatsGrid(stats, isDataLoading, constraints.maxWidth),
+                                  const SizedBox(height: 32),
+                                  Text(
+                                    'Quick Actions',
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 22 : 18, 
+                                      fontWeight: FontWeight.bold, 
+                                      color: Colors.grey[800]
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildManagementGrid(context, constraints.maxWidth),
+                                  const SizedBox(height: 40),
+                                ],
                               ),
-                              const SizedBox(height: 20),
-                              _buildManagementGrid(context),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      }
     );
   }
 
   // --- UI COMPONENTS ---
+
+  PreferredSizeWidget _buildMobileAppBar(BuildContext context, AuthProvider auth) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0.5,
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(Icons.menu, color: sidebarDarkGreen),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+      ),
+      title: const Text('Admin Dashboard', 
+          style: TextStyle(color: sidebarDarkGreen, fontSize: 16, fontWeight: FontWeight.bold)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
+          onPressed: () {
+            auth.logout();
+            Navigator.of(context).pushReplacementNamed('/');
+          },
+        ),
+      ],
+    );
+  }
 
   Widget _buildSidebar(BuildContext context) {
     return Container(
@@ -276,34 +309,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStatsGrid(Map<String, dynamic> stats, bool isLoading) {
+  Widget _buildStatsGrid(Map<String, dynamic> stats, bool isLoading, double maxWidth) {
     if (isLoading) {
       return const Center(child: Padding(
         padding: EdgeInsets.all(20.0),
         child: CircularProgressIndicator(color: brandTeal),
       ));
     }
+
+    // Dynamic width calculation for cards
+    double cardWidth;
+    if (maxWidth > 1200) {
+      cardWidth = (maxWidth - 260 - 48 - 60) / 4; // 4 cards across
+    } else if (maxWidth > 600) {
+      cardWidth = (maxWidth - (maxWidth > 900 ? 260 : 0) - 48 - 20) / 2; // 2 cards across
+    } else {
+      cardWidth = double.infinity; // 1 card across
+    }
+
     return Wrap(
       spacing: 20,
       runSpacing: 20,
       children: [
-        _buildStatCard('Total Students', stats['total_students'].toString(), Icons.people, Colors.teal),
-        _buildStatCard('Total Coaches', stats['total_coaches'].toString(), Icons.sports, Colors.indigo),
-        _buildStatCard('Total Branches', stats['total_branches'].toString(), Icons.business, Colors.orange),
-        _buildStatCard('Total Batches', stats['total_batches'].toString(), Icons.layers, Colors.green),
+        _buildStatCard('Total Students', stats['total_students'].toString(), Icons.people, Colors.teal, cardWidth),
+        _buildStatCard('Total Coaches', stats['total_coaches'].toString(), Icons.sports, Colors.indigo, cardWidth),
+        _buildStatCard('Total Branches', stats['total_branches'].toString(), Icons.business, Colors.orange, cardWidth),
+        _buildStatCard('Total Batches', stats['total_batches'].toString(), Icons.layers, Colors.green, cardWidth),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color, double width) {
     return Container(
-      width: 240,
+      width: width,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -311,35 +356,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              Text(title, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-            ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, 
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis),
+                Text(title, 
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildManagementGrid(BuildContext context) {
+  Widget _buildManagementGrid(BuildContext context, double maxWidth) {
+    // 1 column on mobile, 2 columns on desktop
+    final int crossAxisCount = maxWidth > 600 ? 2 : 1;
+    final double aspectRatio = maxWidth > 1200 ? 4 : (maxWidth > 600 ? 3 : 4);
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      childAspectRatio: 4,
+      crossAxisCount: crossAxisCount,
+      childAspectRatio: aspectRatio,
       crossAxisSpacing: 20,
       mainAxisSpacing: 20,
       children: [
-        _buildActionButton(context, 'Add New Student', Icons.person_add_alt, const Color(0xFFfa709a), 
+        _buildActionButton(context, 'Add Student', Icons.person_add_alt, const Color(0xFFfa709a), 
           () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddStudentEnrollmentScreen()))),
-        _buildActionButton(context, 'Enroll New Coach', Icons.sports, const Color(0xFF38ef7d), 
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CoachEnrollScreen()))),
+        _buildActionButton(context, 'Face Attendance', Icons.face, Colors.teal, 
+          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminFaceAttendanceScreen()))),
         _buildActionButton(context, 'Batch Manager', Icons.groups, const Color(0xFFf093fb), 
           () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BatchManagementScreen()))),
         _buildActionButton(context, 'Branch List', Icons.location_city, const Color(0xFF4facfe), 
           () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchManagementScreen()))),
+        _buildActionButton(context, 'Enroll Coach', Icons.sports, const Color(0xFF38ef7d), 
+          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CoachEnrollScreen()))),
       ],
     );
   }
@@ -404,15 +461,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(Icons.menu, color: Colors.grey),
+          const Icon(Icons.search, color: Colors.grey), // Placeholder for search
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.person_add_outlined, color: Colors.cyan), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.grey), onPressed: () {}),
               const SizedBox(width: 10),
-              const CircleAvatar(backgroundColor: Color(0xFFEEEEEE), child: Icon(Icons.person, color: Colors.grey)),
+              const CircleAvatar(backgroundColor: Color(0xFFEEEEEE), radius: 16, child: Icon(Icons.person, color: Colors.grey, size: 20)),
               const SizedBox(width: 10),
               IconButton(
-                icon: const Icon(Icons.logout, color: Colors.redAccent),
+                icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
                 onPressed: () {
                   auth.logout();
                   Navigator.of(context).pushReplacementNamed('/');
@@ -425,21 +482,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildWelcomeBanner(dynamic user, dynamic profile) {
+  Widget _buildWelcomeBanner(dynamic user, dynamic profile, bool isDesktop) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isDesktop ? 32 : 24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [brandTeal, Color(0xFF004D40)]),
+        gradient: const LinearGradient(
+          colors: [brandTeal, Color(0xFF004D40)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome, ${user?.firstName ?? 'Admin'}',
-              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+          Text('Welcome, ${user?.firstName ?? 'Admin'}!',
+              style: TextStyle(
+                color: Colors.white, 
+                fontSize: isDesktop ? 26 : 22, 
+                fontWeight: FontWeight.bold
+              )),
+          const SizedBox(height: 4),
           Text(profile?.organizationName ?? 'Administrator Dashboard',
-              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16)),
+              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: isDesktop ? 16 : 14)),
         ],
       ),
     );
@@ -448,20 +514,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildActionButton(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[200]!)),
         child: Row(children: [
-          Icon(icon, color: color),
+          Icon(icon, color: color, size: 20),
           const SizedBox(width: 15),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const Spacer(),
-          const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey)
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+          const Icon(Icons.arrow_forward_ios, size: 10, color: Colors.grey)
         ]),
-      ),
+    ),
     );
   }
 }

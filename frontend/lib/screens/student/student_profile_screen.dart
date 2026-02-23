@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 import 'package:sportsverse_app/api/student_api.dart';
+import 'package:sportsverse_app/api/coach_api.dart';
 import 'package:sportsverse_app/models/user.dart';
 
 // ─── DUPR helpers (same scale as dashboard) ───────────────────────────────────
@@ -797,23 +798,89 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
               const Text("Recent Rating Changes",
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 12),
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    children: [
-                      Icon(Icons.history, color: Colors.grey, size: 32),
-                      SizedBox(height: 8),
-                      Text("No matches recorded yet",
-                          style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      SizedBox(height: 4),
-                      Text(
-                          "Your rating history will appear here once\nyou play your first rated match.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey, fontSize: 11)),
-                    ],
-                  ),
-                ),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: coachApi.getMyRatingHistory(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: CircularProgressIndicator()));
+                  }
+                  final entries = snapshot.data ?? [];
+                  if (entries.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          children: [
+                            Icon(Icons.history, color: Colors.grey, size: 32),
+                            SizedBox(height: 8),
+                            Text("No matches recorded yet",
+                                style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            SizedBox(height: 4),
+                            Text(
+                                "Your rating history will appear here once\nyou play your first rated match.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: entries.map((e) {
+                      final delta = (e['delta'] as num).toDouble();
+                      final isPos = delta >= 0;
+                      final format = e['format'] as String? ?? '';
+                      final date = e['date'] as String? ?? '';
+                      final oldR = (e['old_rating'] as num).toDouble();
+                      final newR = (e['new_rating'] as num).toDouble();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: isPos ? Colors.green.shade50 : Colors.red.shade50,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isPos ? Icons.trending_up : Icons.trending_down,
+                                color: isPos ? Colors.green : Colors.red,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('$format match',
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                  Text(date,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(newR.toStringAsFixed(3),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text('${isPos ? '+' : ''}${delta.toStringAsFixed(3)}',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isPos ? Colors.green.shade700 : Colors.red.shade700)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
             ],
           ),

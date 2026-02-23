@@ -390,6 +390,160 @@ class MatchSubmitView(APIView):
         return Response(result, status=status.HTTP_201_CREATED)
 
 
+# ─── ForecastView ─────────────────────────────────────────────────────────────
+
+class ForecastView(APIView):
+    """
+    POST /api/ratings/forecast/
+
+    Simulate what would happen to two players' ratings if one of them wins.
+    NO database writes — pure calculation.
+
+    Payload:
+    {
+        "player1_id": 5,
+        "player2_id": 8,
+        "format": "SINGLES",       # SINGLES | DOUBLES
+        "importance": "CASUAL"
+    }
+
+    Response:
+    {
+        "player1": {
+            "user_id": 5,
+            "username": "alice",
+            "current_rating": 4.200,
+            "if_win":  {"new_rating": 4.250, "delta": +0.050},
+            "if_loss": {"new_rating": 4.170, "delta": -0.030}
+        },
+        "player2": { ... },
+        "win_probability_player1": 0.67,   # 0-1
+        "win_probability_player2": 0.33
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        p1_id = data.get('player1_id')
+        p2_id = data.get('player2_id')
+        fmt = (data.get('format', 'SINGLES') or 'SINGLES').upper()
+        importance = (data.get('importance', 'CASUAL') or 'CASUAL').upper()
+
+        if not p1_id or not p2_id:
+            return Response({'error': 'player1_id and player2_id required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from accounts.models import CustomUser
+        from organizations.models import Sport
+        try:
+            p1 = CustomUser.objects.get(pk=p1_id)
+            p2 = CustomUser.objects.get(pk=p2_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'Player not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Determine org — use the requesting coach's org
+        org = None
+        sport = None
+        if request.user.user_type == 'COACH' and hasattr(request.user, 'coach_profile'):
+            org = request.user.coach_profile.organization
+            sport = Sport.objects.filter(organizations=org).order_by('pk').first()
+
+        # Get current ratings (default 4.000 if no profile)
+        def get_rating(user):
+            if org and sport:
+                try:
+                    rp = PlayerRatingProfile.objects.get(user=user, organization=org, sport=sport)
+                    return (
+                        float(rp.dupr_rating_singles) if fmt == 'SINGLES' else float(rp.dupr_rating_doubles),
+                        rp.matches_played_singles if fmt == 'SINGLES' else rp.matches_played_doubles,
+                    )
+                except PlayerRatingProfile.DoesNotExist:
+                    pass
+            return 4.000, 0
+
+        r1, mp1 = get_rating(p1)
+        r2, mp2 = get_rating(p2)
+
+        elo1 = dupr_to_elo(r1)
+        elo2 = dupr_to_elo(r2)
+
+        win_prob_1 = expected_score(elo1, elo2)
+        win_prob_2 = 1.0 - win_prob_1
+
+        def simulate(current_r, opp_r, mp, actual):
+            from ratings.rating import update_one_player
+            new_r, delta = update_one_player(current_r, opp_r, actual, mp, importance)
+            return {'new_rating': new_r, 'delta': delta}
+
+        p1_if_win  = simulate(r1, r2, mp1, 1.0)
+        p1_if_loss = simulate(r1, r2, mp1, 0.0)
+        p2_if_win  = simulate(r2, r1, mp2, 1.0)
+        p2_if_loss = simulate(r2, r1, mp2, 0.0)
+
+        def name(u):
+            full = f'{u.first_name} {u.last_name}'.strip()
+            return full if full else u.username
+
+        return Response({
+            'format': fmt,
+            'importance': importance,
+            'win_probability_player1': round(win_prob_1, 3),
+            'win_probability_player2': round(win_prob_2, 3),
+            'player1': {
+                'user_id': p1.pk,
+                'username': p1.username,
+                'display_name': name(p1),
+                'current_rating': r1,
+                'if_win': p1_if_win,
+                'if_loss': p1_if_loss,
+            },
+            'player2': {
+                'user_id': p2.pk,
+                'username': p2.username,
+                'display_name': name(p2),
+                'current_rating': r2,
+                'if_win': p2_if_win,
+                'if_loss': p2_if_loss,
+            },
+        }, status=status.HTTP_200_OK)
+
+
+# ─── PlayerAuditHistoryView ───────────────────────────────────────────────────
+
+class PlayerAuditHistoryView(APIView):
+    """
+    GET /api/ratings/my-history/
+
+    Returns the last 30 rating audit entries for the authenticated user.
+    Used by student profile screen to show recent rating changes.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        entries = (
+            RatingAudit.objects
+            .filter(player=request.user, rolled_back=False)
+            .select_related('match')
+            .order_by('-created_at')[:30]
+        )
+
+        data = []
+        for e in entries:
+            data.append({
+                'id': e.pk,
+                'format': e.format,
+                'old_rating': float(e.old_rating),
+                'new_rating': float(e.new_rating),
+                'delta': float(e.delta),
+                'method': e.method,
+                'date': e.created_at.date().isoformat(),
+                'match_id': e.match_id,
+                'note': e.note,
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
 # ─── MatchListView ────────────────────────────────────────────────────────────
 
 class MatchListView(APIView):
