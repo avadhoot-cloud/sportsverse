@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:sportsverse_app/screens/academy_admin/mark_attendence.dart';
+import 'package:sportsverse_app/widgets/ai_bot_sheet.dart';
 import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/api/payment_api.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
@@ -24,6 +25,7 @@ import 'package:sportsverse_app/screens/academy_admin/send_video_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/player_report_screen.dart';
 import 'package:sportsverse_app/widgets/financial_chart.dart';
 
+
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -33,13 +35,16 @@ class AdminDashboardScreen extends StatefulWidget {
   
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> with TickerProviderStateMixin {
   static const Color sidebarDarkGreen = Color(0xFF1B3D2F);
   static const Color brandTeal = Color(0xFF00796B);
   static const Color accentTeal = Color(0xFF00A388);
 
   List expenses = [];
 bool isLoadingExpenses = true;
+
+late AnimationController _animationController;
+late Animation<double> _scaleAnimation;
 
 final titleController = TextEditingController();
 final amountController = TextEditingController();
@@ -64,7 +69,26 @@ final amountController = TextEditingController();
     _paymentApi = PaymentApi(apiClient);
     _loadAnalytics();
     fetchExpenses();
+    
+    _animationController = AnimationController(
+  vsync: this,
+  duration: const Duration(milliseconds: 800),
+)..repeat(reverse: true);
+
+_scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+  CurvedAnimation(
+    parent: _animationController,
+    curve: Curves.easeInOut,
+  ),
+);
   }
+
+
+@override
+void dispose() {
+  _animationController.dispose();
+  super.dispose();
+}
 
 Future<void> fetchExpenses() async {
   setState(() {
@@ -242,6 +266,32 @@ Widget build(BuildContext context) {
             backgroundColor: const Color(0xFFF8F9FA),
             drawer: isDesktop ? null : _buildSidebar(innerContext),
             appBar: isDesktop ? null : _buildMobileAppBar(innerContext, authProvider),
+
+
+          // ADD THIS PART HERE:
+  floatingActionButton: ScaleTransition(
+    scale: _scaleAnimation, // Using your existing pulse animation!
+    child: FloatingActionButton(
+      backgroundColor: brandTeal,
+      child: const Icon(Icons.smart_toy, color: Colors.white),
+      onPressed: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (context) => const AIBotSheet(),
+        );
+      },
+    ),
+  ),
+  
+  
+
+
+
+
             body: Row(
               children: [
                 if (isDesktop) _buildSidebar(innerContext),
@@ -558,10 +608,45 @@ Widget _buildAnalyticsDashboardContainer() {
             icon: Icons.how_to_reg,
             isExpanded: _isAttendanceExpanded,
             onExpansionChanged: (val) => setState(() => _isAttendanceExpanded = val),
-            children: [
-              _sidebarSubItem(context, 'Face Attendance', Icons.face, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminFaceAttendanceScreen()))),
-              _sidebarSubItem(context, 'View Attendance', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ViewAttendanceScreen()))),
-            ],
+             children: [
+  _sidebarSubItem(
+    context,
+    'Face Attendance',
+    Icons.face,
+    () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AdminFaceAttendanceScreen(),
+      ),
+    ),
+  ),
+
+  // 🔥 ADD THIS HERE
+  _sidebarSubItem(
+    context,
+    'Mark Attendance',
+    Icons.check_circle_outline,
+    () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MarkAttendanceScreen(),
+      ),
+    ),
+  ),
+
+  _sidebarSubItem(
+    context,
+    'View Attendance',
+    Icons.calendar_month,
+    () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ViewAttendanceScreen(),
+      ),
+    ),
+  ),
+],
+      
           ),
 
           _buildExpansionTile(

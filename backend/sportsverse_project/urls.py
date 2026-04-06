@@ -15,8 +15,10 @@ urlpatterns = [
     path('api/content/', include('content.urls')),
     path('api/coaches/', include('coaches.urls')),
     path('api/reports/', include('academy_reports.urls')),
-    path('api/ratings/', include('ratings.urls')),           # ← DUPR rating system
+    path('api/ratings/', include('ratings.urls')),  
+    path('api/organizations/', include('organizations.urls')),         # ← DUPR rating system
     # Student-specific endpoints
+    path('api/', include('api.urls')), # <--- If your folder is 'api', use 'api.urls'
     path('api/student/', include('accounts.urls')),
     path('api/academy-contents/', include('academy_contents.urls')),
 ]

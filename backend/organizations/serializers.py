@@ -348,9 +348,15 @@ class AttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.first_name', read_only=True)
     student_last_name = serializers.CharField(source='student.last_name', read_only=True)
     batch_name = serializers.CharField(source='batch.name', read_only=True)
-    marked_by_name = serializers.CharField(source='marked_by.get_full_name', read_only=True)
-
+    marked_by_name = serializers.SerializerMethodField()
     is_present = serializers.SerializerMethodField()
+    
+
+def get_marked_by_name(self, obj):
+    if obj.marked_by:
+        return f"{obj.marked_by.first_name} {obj.marked_by.last_name}"
+    return None
+
 
     class Meta:
         model = Attendance

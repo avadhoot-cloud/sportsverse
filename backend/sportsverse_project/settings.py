@@ -8,7 +8,9 @@ Copy backend/.env.example → backend/.env and fill in your values.
 from pathlib import Path
 import os
 from decouple import config, Csv
-
+from dotenv import load_dotenv
+load_dotenv()
+GEMINI_API_KEY = os.getenv("AIzaSyA7hxWp9DN98bP2wqrrK6tmD78k5ootw6w")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,6 +30,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'accounts',
+    'api',
     'corsheaders',
     'academy_contents',
     'django_extensions',
