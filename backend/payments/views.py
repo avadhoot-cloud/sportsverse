@@ -45,10 +45,12 @@ def create_fee_transaction(request):
         student_id = request.data.get('student_id')
         amount = request.data.get('amount')
         payment_method = request.data.get('payment_method', 'cash')
+        enrollment_id = request.data.get('enrollment_id')
 
         transaction = FeeTransaction.objects.create(
             organization=request.user.organization,
             student_id=student_id,
+            enrollment_id=enrollment_id,
             amount=amount,
             payment_method=payment_method,
             is_paid=True
@@ -412,6 +414,64 @@ def add_coach_salary(request):
             "message": "Salary recorded",
             "id": salary.id
         })
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_payment_dashboard(request):
+    try:
+        student = request.user.studentprofile
+
+        enrollments = Enrollment.objects.filter(
+            student=student,
+            is_active=True
+        ).select_related('batch')
+
+        result = []
+
+        for enroll in enrollments:
+            batch = enroll.batch
+
+            # 🔥 TOTAL SESSIONS
+            total_sessions = enroll.total_sessions or 0
+
+            # 🔥 PRICE PER SESSION
+            fee_per_session = batch.fee_per_session or 0
+
+            # 🔥 TOTAL AMOUNT
+            total_amount = total_sessions * fee_per_session
+
+            # 🔥 PAID AMOUNT
+            paid_amount = FeeTransaction.objects.filter(
+                enrollment=enroll,
+                is_paid=True
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            # 🔥 PENDING
+            pending_amount = total_amount - paid_amount
+
+            # 🔥 STATUS
+            if paid_amount == total_amount:
+                status = "Paid"
+            elif paid_amount == 0:
+                status = "Pending"
+            else:
+                status = "Partial"
+
+            result.append({
+                "enrollment_id": enroll.id,
+                "batch_name": batch.name,
+                "total_sessions": total_sessions,
+                "fee_per_session": float(fee_per_session),
+                "total_amount": float(total_amount),
+                "paid_amount": float(paid_amount),
+                "pending_amount": float(pending_amount),
+                "status": status
+            })
+
+        return Response(result)
 
     except Exception as e:
         return Response({"error": str(e)}, status=400)

@@ -1,204 +1,299 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sportsverse_app/providers/student_provider.dart';
+import '../../api/api_client.dart';
 
-class AttendanceScreen extends StatelessWidget {
+class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // 1. Listen to the provider
-    final provider = context.watch<StudentProvider>();
-    
-    // 2. Extract real data from provider
-    // Note: Adjust these variable names to match your StudentProvider exactly
-    final records = provider.attendanceRecords ?? []; 
-    final totalSessions = records.length;
-    final presentCount = records.where((r) => r.status == "Present").length;
-    final absentCount = records.where((r) => r.status == "Absent").length;
-    
-    // Calculate dynamic percentage
-    double attendanceRate = totalSessions > 0 ? presentCount / totalSessions : 0.0;
+  State<AttendanceScreen> createState() => _AttendanceScreenState();
+}
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
-      appBar: AppBar(
-        title: const Text("My Attendance", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: provider.isLoading 
-        ? const Center(child: CircularProgressIndicator()) 
-        : Column(
-            children: [
-              // Dynamic Stats Header
-              _buildStatsHeader(attendanceRate, presentCount.toString(), absentCount.toString()),
-              const SizedBox(height: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
-                  ),
-                  child: records.isEmpty 
-                    ? const Center(child: Text("No attendance records found from database."))
-                    : _buildAttendanceList(records),
-                ),
-              ),
-            ],
-          ),
-    );
+class _AttendanceScreenState extends State<AttendanceScreen> {
+  List<dynamic> attendanceData = [];
+  List<dynamic> filteredList = [];
+
+  bool isLoading = true;
+  String selectedMonth = "All";
+  String searchDate = "";
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAttendance();
   }
 
-  // --- DYNAMIC HEADER ---
-  Widget _buildStatsHeader(double rate, String present, String absent) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Performance", style: TextStyle(color: Colors.grey, fontSize: 14)),
-              Text(
-                rate >= 0.75 ? "Excellent!" : rate >= 0.5 ? "Good Job!" : "Needs Focus", 
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1B3D2F))
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _miniStat(present, "Present", Colors.green),
-                  const SizedBox(width: 15),
-                  _miniStat(absent, "Absent", Colors.red),
-                ],
-              )
-            ],
-          ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                height: 80,
-                width: 80,
-                child: CircularProgressIndicator(
-                  value: rate,
-                  strokeWidth: 8,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1B3D2F)),
-                ),
-              ),
-              Text("${(rate * 100).toInt()}%", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          )
-        ],
-      ),
-    );
+  Future<void> fetchAttendance() async {
+    try {
+      final api = ApiClient();
+      final response =
+          await api.get("api/organizations/student/attendance/");
+
+      final decoded = jsonDecode(response.body);
+
+      setState(() {
+        attendanceData = decoded is List ? decoded : [];
+
+        filteredList = (attendanceData.isNotEmpty &&
+                attendanceData[0]['attendance_details'] != null)
+            ? attendanceData[0]['attendance_details']
+            : [];
+
+        isLoading = false;
+      });
+
+      checkAbsentReminder();
+    } catch (e) {
+      print("❌ FETCH ERROR: $e");
+      setState(() => isLoading = false);
+    }
   }
 
-  Widget _miniStat(String val, String label, Color color) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 5),
-        Text("$val $label", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
+  // 🔍 FILTER LOGIC (SAFE)
+  void applyFilters() {
+    if (attendanceData.isEmpty) return;
 
-  // --- DYNAMIC LIST ---
-  Widget _buildAttendanceList(List records) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 25),
-      itemCount: records.length,
-      itemBuilder: (context, index) {
-        // Mapping your database model to the UI
-        final record = records[index];
-        return _attendanceCard({
-          "date": record.date ?? "N/A", // Ensure your model has a .date
-          "day": record.day ?? "Training Day", 
-          "status": record.status ?? "Null", // Present, Absent, or Null
-          "coach": record.coachName ?? "Admin", 
-        });
-      },
-    );
-  }
+    final data = attendanceData[0];
+    List list = data['attendance_details'] ?? [];
 
-  Widget _attendanceCard(Map<String, dynamic> data) {
-    Color statusColor;
-    IconData statusIcon;
-
-    switch (data['status']) {
-      case 'Present':
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        break;
-      case 'Absent':
-        statusColor = Colors.red;
-        statusIcon = Icons.cancel;
-        break;
-      default: // This handles the 'null' or 'pending' state
-        statusColor = Colors.orange;
-        statusIcon = Icons.hourglass_top;
+    if (selectedMonth != "All") {
+      list = list.where((item) {
+        try {
+          final date = DateTime.parse(item['date']);
+          return date.month == int.parse(selectedMonth);
+        } catch (_) {
+          return false;
+        }
+      }).toList();
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))],
-      ),
-      child: Row(
+    if (searchDate.isNotEmpty) {
+      list = list.where((item) {
+        return item['date']?.toString().contains(searchDate) ?? false;
+      }).toList();
+    }
+
+    setState(() {
+      filteredList = list;
+    });
+  }
+
+  // 🔔 ABSENT REMINDER (SAFE)
+  void checkAbsentReminder() {
+    if (attendanceData.isEmpty) return;
+
+    final list = attendanceData[0]['attendance_details'] ?? [];
+
+    int absentStreak = 0;
+
+    for (var item in list) {
+      if (item['status'] == "Absent") {
+        absentStreak++;
+      } else {
+        break;
+      }
+    }
+
+    if (absentStreak >= 2) {
+      Future.delayed(Duration.zero, () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠️ You were absent for 2+ days!"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  }
+
+  // 📊 SMART PREDICTION
+  String getPrediction(double percentage) {
+    if (percentage < 75) {
+      return "⚠️ You are below 75%. Risk!";
+    } else if (percentage < 80) {
+      return "⚠️ You may fall below 75% soon";
+    } else {
+      return "✅ You are safe";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (attendanceData.isEmpty) {
+      return const Scaffold(
+        body: Center(child: Text("No Data")),
+      );
+    }
+
+    final data = attendanceData[0];
+
+    final percentage =
+        (data['attendance_percentage'] ?? 0).toDouble();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("My Attendance")),
+      body: Column(
         children: [
-          // Dynamic Date Handling
-          Column(
-            children: [
-              Text(
-                data['date'].toString().split(" ")[0], 
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+          // 🚨 ALERT
+          if (percentage < 75)
+            Container(
+              width: double.infinity,
+              color: Colors.red,
+              padding: const EdgeInsets.all(10),
+              child: const Text(
+                "⚠️ Low Attendance!",
+                style: TextStyle(color: Colors.white),
               ),
-              Text(
-                data['date'].toString().contains(" ") ? data['date'].toString().split(" ")[1] : "", 
-                style: const TextStyle(fontSize: 11, color: Colors.grey)
+            ),
+
+          // 📊 SUMMARY
+          Card(
+            margin: const EdgeInsets.all(10),
+            child: ListTile(
+              title: Text("Attendance: $percentage%"),
+              subtitle: Text(
+                "Present: ${data['present_count'] ?? 0} / ${data['total_sessions'] ?? 0}",
+              ),
+            ),
+          ),
+
+          // 📊 PROGRESS
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: LinearProgressIndicator(
+              value: percentage / 100,
+              minHeight: 10,
+            ),
+          ),
+
+          // 📊 PREDICTION
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Text(
+              getPrediction(percentage),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          // 📅 FILTERS
+          Row(
+            children: [
+              DropdownButton<String>(
+                value: selectedMonth,
+                items: [
+                  const DropdownMenuItem(
+                      value: "All", child: Text("All")),
+                  ...List.generate(12, (index) {
+                    return DropdownMenuItem(
+                      value: (index + 1).toString(),
+                      child: Text("Month ${index + 1}"),
+                    );
+                  })
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    selectedMonth = val!;
+                  });
+                  applyFilters();
+                },
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: "Search YYYY-MM-DD",
+                  ),
+                  onChanged: (val) {
+                    searchDate = val;
+                    applyFilters();
+                  },
+                ),
               ),
             ],
           ),
-          const SizedBox(width: 15),
-          Container(width: 1, height: 40, color: Colors.grey[200]),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+          const SizedBox(height: 10),
+
+          // 📋 HEADER
+          Container(
+            color: Colors.grey[300],
+            padding: const EdgeInsets.all(10),
+            child: const Row(
               children: [
-                Text(data['day'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text("Verified by ${data['coach']}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(flex: 3, child: Text("Date")),
+                Expanded(flex: 2, child: Text("Status")),
+                Expanded(flex: 2, child: Text("Time")),
+                Expanded(flex: 2, child: Text("By")),
               ],
             ),
           ),
-          // Status Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(statusIcon, color: statusColor, size: 12),
-                const SizedBox(width: 4),
-                Text(data['status'], style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
-              ],
-            ),
+
+          // 📋 TABLE (FULL SAFE)
+          Expanded(
+            child: (filteredList is List && filteredList.isNotEmpty)
+                ? ListView.builder(
+                    itemCount: filteredList.length,
+                    itemBuilder: (context, index) {
+                      final item = filteredList[index] ?? {};
+
+                      final date =
+                          item['date']?.toString() ?? "-";
+                      final status =
+                          item['status']?.toString() ?? "Absent";
+                      final time = item['time'];
+                      final markedBy = item['marked_by'];
+
+                      return Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            Expanded(flex: 3, child: Text(date)),
+
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  color: status == "Present"
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                            ),
+
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                (time != null &&
+                                        time.toString().length >= 16)
+                                    ? time
+                                        .toString()
+                                        .substring(11, 16)
+                                    : "-",
+                              ),
+                            ),
+
+                            Expanded(
+                              flex: 2,
+                              child:
+                                  Text(markedBy?.toString() ?? "-"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Text("No Attendance Records"),
+                  ),
           ),
         ],
       ),

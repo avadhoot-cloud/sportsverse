@@ -480,6 +480,83 @@ def get(self, request):
         })
 
     return Response(data)
+
+
+from collections import defaultdict
+from datetime import datetime
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from datetime import datetime, timedelta
+from .models import Enrollment, Attendance
+
+class StudentAttendanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # ✅ Only student allowed
+        if not hasattr(user, 'student_profile'):
+            return Response({"error": "Only students allowed"}, status=403)
+
+        student = user.student_profile
+        enrollments = Enrollment.objects.filter(student=student)
+
+        final_data = []
+
+        for e in enrollments:
+            attendances = Attendance.objects.filter(
+                enrollment=e
+            ).select_related('marked_by').order_by('date')
+
+            # ✅ TOTAL SESSIONS
+            total_sessions = e.total_sessions if e.total_sessions else attendances.count()
+
+            # ✅ PRESENT COUNT
+            present_count = attendances.filter(is_session_deducted=True).count()
+
+            # ✅ PERCENTAGE
+            percentage = (present_count / total_sessions * 100) if total_sessions > 0 else 0
+
+            # ✅ BUILD FULL LIST (PRESENT + ABSENT)
+            attendance_list = []
+
+            if e.start_date:
+                current_date = e.start_date
+                today = datetime.today().date()
+
+                while current_date <= today:
+                    attendance_obj = attendances.filter(date=current_date).first()
+
+                    if attendance_obj:
+                        attendance_list.append({
+                            "date": current_date,
+                            "status": "Present",
+                            "time": attendance_obj.timestamp,
+                            "marked_by": attendance_obj.marked_by.username if attendance_obj.marked_by else None
+                        })
+                    else:
+                        attendance_list.append({
+                            "date": current_date,
+                            "status": "Absent",
+                            "time": None,
+                            "marked_by": None
+                        })
+
+                    current_date += timedelta(days=1)
+
+            final_data.append({
+                "batch_name": e.batch.name,
+                "attendance_percentage": round(percentage, 1),
+                "present_count": present_count,
+                "total_sessions": total_sessions,
+                "low_attendance": percentage < 75,
+                "attendance_details": attendance_list[::-1]  # latest first 🔥
+            })
+
+        return Response(final_data)
     
 class BulkAttendanceMarkView(APIView):
     permission_classes = [IsAuthenticated]

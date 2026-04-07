@@ -3,7 +3,7 @@ from django.conf import settings
 
 # This pulls the key from your settings.py
 # Go to https://aistudio.google.com/ to get your free key
-genai.configure(api_key="AIzaSyA7hxWp9DN98bP2wqrrK6tmD78k5ootw6w")
+genai.configure(api_key="AIzaSyDbiN-A2MheTeOgJ0paJgr_mUMQjb_NR0Y")
 
 def add_attendance(student_name):
     # Logic to update your Attendance model
@@ -15,7 +15,7 @@ def add_payment(student_name, amount):
 
 # Define the model with tools
 model = genai.GenerativeModel(
-    model_name='gemini-3.1-pro-preview-customtools', # Use this exact string
+    model_name='gemini-1.5-flash', # Use this exact string
     tools=[add_attendance, add_payment]
 )
 def process_bot_request(user_text):

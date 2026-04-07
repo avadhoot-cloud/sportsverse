@@ -86,3 +86,6 @@ yarn-error.log*
 # Temporary Files
 *.tmp
 *.temp
+# Flutter build files
+build/
+*.apk

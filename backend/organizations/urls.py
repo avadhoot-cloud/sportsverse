@@ -15,7 +15,7 @@ from .views import (
     AttendanceListView,
     AttendanceRetrieveUpdateDestroyView,
 BatchAttendanceSummaryView,
-AttendanceStudentsView,
+AttendanceStudentsView,StudentAttendanceView,
 BatchStudentsForAttendanceView, BulkAttendanceMarkView
 )
 
@@ -52,6 +52,8 @@ urlpatterns = [
         AttendanceStudentsView.as_view(),
         name='attendance-students'
     ),
+    path('student/attendance/', StudentAttendanceView.as_view()),
+
     path('attendance/mark-bulk/', BulkAttendanceMarkView.as_view(),name='attendance-bulk'),
 
 ]
