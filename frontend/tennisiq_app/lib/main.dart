@@ -27,7 +27,7 @@ void main() {
                         const SizedBox(height: 16),
                         const Text('Something went wrong!', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        const Text('Our boundary systems safely caught an error locally.', style: TextStyle(color: Colors.white54, textAlign: TextAlign.center)),
+                        const Text('Our boundary systems safely caught an error locally.', style: TextStyle(color: Colors.white54), textAlign: TextAlign.center),
                         const SizedBox(height: 24),
                         ElevatedButton(
                             onPressed: () { /* Safe Reload Mock mapping loops*/ },

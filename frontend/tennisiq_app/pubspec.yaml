@@ -10,32 +10,39 @@ dependencies:
   flutter:
     sdk: flutter
   # State Management
-  flutter_riverpod: ^2.4.3
+  flutter_riverpod: ^2.5.0
   
   # Navigation
-  go_router: ^12.1.1
+  go_router: ^17.0.0
   
   # Networking
   dio: ^5.3.3
   
   # Storage
   shared_preferences: ^2.2.2
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^10.0.0
   
   # UI
-  fl_chart: ^0.65.0
+  fl_chart: ^0.68.0
   
   # Hardware / Media
-  permission_handler: ^11.0.1
-  flutter_blue_plus: ^1.15.10
-  camera: ^0.10.5+5
+  permission_handler: ^12.0.1
+  flutter_blue_plus: ^2.2.1
+  camera: ^0.11.2+1
   video_player: ^2.8.1
   audioplayers: ^6.6.0
-
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  onnxruntime: any
+  path_provider: ^2.1.2
+  file_picker: ^11.0.2
+  cross_file: ^0.3.5+2
+  # Phase 4 — Real-time WebSocket status
+  web_socket_channel: ^3.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:onnxruntime_flutter/onnxruntime_flutter.dart';
+import 'package:onnxruntime/onnxruntime.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class OnDeviceClassifier {
@@ -25,7 +26,7 @@ class OnDeviceClassifier {
       _session = OrtSession.fromFile(File(tempPath), sessionOptions);
       _isInitialized = true;
     } catch (e) {
-      print('Edge Initialization explicitly dropped natively: $e');
+      debugPrint('Edge Initialization explicitly dropped natively: $e');
       _isInitialized = false; // Graceful HTTP fallback trigger
     }
   }
@@ -62,7 +63,7 @@ class OnDeviceClassifier {
         out?.release();
       }
     } catch (e) {
-      print('ONNX Inference crashed natively: $e');
+      debugPrint('ONNX Inference crashed natively: $e');
     }
     return null;
   }

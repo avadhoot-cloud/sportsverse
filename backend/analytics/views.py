@@ -34,7 +34,7 @@ from django.db.models import Sum, Avg, Count
 from django.db.models.functions import TruncWeek
 from django.utils import timezone
 from datetime import timedelta
-from django.views.decorators.cache import cache_page
+from django.views.decorators.cache import cache_page  # noqa: F401 kept for future use
 from django_ratelimit.decorators import ratelimit
 from .coaching import CoachingEngine
 
@@ -49,10 +49,9 @@ def coaching_insights(request, session_id):
     except Exception as e:
         return Response({'error': str(e)}, status=400)
 
-@ratelimit(key='user', rate='100/m', block=True)
-@cache_page(60 * 5)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@ratelimit(key='user', rate='100/m', block=True)
 def analytics_summary(request):
     user = request.user
     sessions = MatchSession.objects.filter(user=user).order_by('-date')
@@ -75,7 +74,7 @@ def analytics_summary(request):
     dom = max(set(stances), key=stances.count) if stances else 'none'
     
     # Best Session logically using Fusion's Overall score if available
-    best_fusion = FusionMetrics.objects.filter(session__in=sessions).order_by('-overall_performance_score').first()
+    best_fusion = FusionMetrics.objects.filter(session__in=sessions).order_by('-stroke_quality_score').first()
     best_session = best_fusion.session.id if best_fusion else sessions.first().id
     
     # Streak calculating logically checking consecutive sets
@@ -102,9 +101,9 @@ def analytics_summary(request):
         'streak_days': streak
     })
 
-@ratelimit(key='user', rate='100/m', block=True)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@ratelimit(key='user', rate='100/m', block=True)
 def analytics_progress(request):
     user = request.user
     twelve_weeks_ago = timezone.now() - timedelta(weeks=12)

@@ -20,17 +20,44 @@ class AuthState {
   }
 }
 
-final apiServiceProvider = Provider((ref) => ApiService());
+final Provider<ApiService> apiServiceProvider = Provider<ApiService>((ref) {
+  return ApiService(
+    onUnauthenticated: () {
+      Future.microtask(() {
+        ref.read(authProvider.notifier).markUnauthenticated();
+      });
+    },
+  );
+});
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.read(apiServiceProvider));
+/// Exposes the raw JWT access token for use in WebSocket URL query params.
+/// Returns null if the user is not authenticated.
+final Provider<String?> authTokenProvider = Provider<String?>((ref) {
+  // This is synchronous — the token is in secure storage, but we cache it
+  // in the auth state to avoid async gaps in providers.
+  // Retrieve via the notifier's stored value after login.
+  final authState = ref.watch(authProvider);
+  if (authState.status == AuthStatus.authenticated) {
+    // Token is read asynchronously in AuthNotifier — store it in state
+    return ref.read(_cachedTokenProvider);
+  }
+  return null;
+});
+
+/// Internal provider caching the JWT string synchronously post-login.
+final StateProvider<String?> _cachedTokenProvider = StateProvider<String?>((ref) => null);
+
+final StateNotifierProvider<AuthNotifier, AuthState> authProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier(ref.read(apiServiceProvider), ref);
 });
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _apiService;
+  final Ref _ref;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  AuthNotifier(this._apiService) : super(AuthState(status: AuthStatus.initial)) {
+  AuthNotifier(this._apiService, this._ref) : super(AuthState(status: AuthStatus.initial)) {
     checkAuthStatus();
   }
 
@@ -56,6 +83,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       
       await _secureStorage.write(key: 'access_token', value: access);
       await _secureStorage.write(key: 'refresh_token', value: refresh);
+
+      // Cache token synchronously for authTokenProvider
+      _ref.read(_cachedTokenProvider.notifier).state = access;
       
       state = state.copyWith(status: AuthStatus.authenticated, errorMessage: null);
     } on DioException catch (e) {
@@ -102,6 +132,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   
   Future<void> logout() async {
     await _secureStorage.deleteAll();
+    state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null);
+  }
+
+  void markUnauthenticated() {
     state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null);
   }
 }

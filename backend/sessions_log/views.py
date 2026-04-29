@@ -3,6 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from .models import MatchSession, StrokeEvent, RallyEvent
 from .serializers import MatchSessionSerializer, StrokeEventSerializer, RallyEventSerializer
 
+from rest_framework.decorators import action
+from django.db.models import Count
+
 class MatchSessionViewSet(viewsets.ModelViewSet):
     queryset = MatchSession.objects.all()
     serializer_class = MatchSessionSerializer
@@ -13,6 +16,72 @@ class MatchSessionViewSet(viewsets.ModelViewSet):
         
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
+        
+    @action(detail=True, methods=['get'])
+    def details_ui(self, request, pk=None):
+        session = self.get_object()
+        strokes = session.stroke_events.all()
+        
+        # Calculate distribution safely
+        distribution = {}
+        for s in strokes:
+            t = s.stroke_type
+            distribution[t] = distribution.get(t, 0) + 1
+            
+        # Get VideoMetrics if they exist
+        video_metrics = getattr(session, 'video_metrics', None)
+        fusion_metrics = getattr(session, 'fusion_metrics', None)
+        watch_metrics = getattr(session, 'watch_metrics', None)
+        
+        # Task 30: Stroke Tempo Time-Series
+        tempo_series = []
+        if strokes.exists():
+            max_ms = max([s.timestamp_ms for s in strokes])
+            minutes = int(max_ms // 60000) + 1
+            bins = [0] * minutes
+            for s in strokes:
+                min_idx = int(s.timestamp_ms // 60000)
+                if 0 <= min_idx < minutes:
+                    bins[min_idx] += 1
+            tempo_series = bins
+            
+        # Task 31: Fatigue Score Computation
+        if watch_metrics and watch_metrics.fatigue_score is None:
+            from analytics.fatigue_model import calculate_fatigue_index
+            fatigue = calculate_fatigue_index(watch_metrics, video_metrics)
+            if fatigue is not None:
+                watch_metrics.fatigue_score = fatigue
+                watch_metrics.save()
+        
+        return Response({
+            "session_id": str(session.id),
+            "stroke_count": strokes.count() if strokes.exists() else "NA",
+            "distance_m": video_metrics.movement_distance_m if video_metrics and video_metrics.movement_distance_m is not None else "NA",
+            "stroke_distribution": {
+                "forehand": distribution.get('forehand', "NA"),
+                "backhand": distribution.get('backhand', "NA"),
+                "serve": distribution.get('serve', "NA"),
+                "volley": distribution.get('volley', "NA"),
+                "unknown": distribution.get('unknown', "NA"),
+            },
+            "shot_accuracy_pct": video_metrics.shot_accuracy_pct if video_metrics and video_metrics.shot_accuracy_pct is not None else "NA",
+            "avg_reaction_time_ms": video_metrics.avg_reaction_time_ms if video_metrics and video_metrics.avg_reaction_time_ms is not None else "NA",
+            "unforced_errors": video_metrics.unforced_errors if video_metrics and video_metrics.unforced_errors is not None else "NA",
+            # Phase 3 fields — server-only (ball_tracker.pt not on Flutter edge)
+            "max_ball_speed_kmh": video_metrics.max_ball_speed_kmh if video_metrics and video_metrics.max_ball_speed_kmh is not None else "NA",
+            "dominant_court_zone": video_metrics.dominant_court_zone if video_metrics and video_metrics.dominant_court_zone is not None else "NA",
+            "match_intensity_score": fusion_metrics.match_intensity if fusion_metrics and fusion_metrics.match_intensity is not None else "NA",
+            "timing_score": fusion_metrics.timing_score if fusion_metrics and fusion_metrics.timing_score is not None else "NA",
+            "consistency_score": fusion_metrics.consistency_score if fusion_metrics and fusion_metrics.consistency_score is not None else "NA",
+            "stroke_quality_score": fusion_metrics.stroke_quality_score if fusion_metrics and fusion_metrics.stroke_quality_score is not None else "NA",
+            "max_rally_length": video_metrics.max_rally_length if video_metrics and video_metrics.max_rally_length is not None else "NA",
+            "avg_rally_length": video_metrics.avg_rally_length if video_metrics and video_metrics.avg_rally_length is not None else "NA",
+            "movement_heatmap": video_metrics.movement_heatmap if video_metrics and video_metrics.movement_heatmap is not None else "NA",
+            "max_serve_speed_kmh": video_metrics.max_serve_speed_kmh if video_metrics and video_metrics.max_serve_speed_kmh is not None else "NA",
+            "fatigue_score": watch_metrics.fatigue_score if watch_metrics and watch_metrics.fatigue_score is not None else "NA",
+            "stroke_tempo_series": tempo_series,
+            "coaching_insights": []
+        })
 
 class StrokeEventViewSet(viewsets.ModelViewSet):
     queryset = StrokeEvent.objects.all()

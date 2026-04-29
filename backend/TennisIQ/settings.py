@@ -17,6 +17,7 @@ ALLOWED_HOSTS = ['*'] # Allowed for development
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',           # Must be FIRST — overrides runserver with ASGI
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -27,11 +28,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'channels',
     # Local apps
     'users',
     'sessions_log',
     'analytics',
     'fusion',
+    # Rate limiting
+    'django_ratelimit',
 ]
 
 MIDDLEWARE = [
@@ -66,19 +70,28 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'TennisIQ.wsgi.application'
+ASGI_APPLICATION = 'TennisIQ.asgi.application'
 
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'tennisiq_db'),
-        'USER': os.getenv('POSTGRES_USER', 'tennisiq_user'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'tennisiq_pass'),
-        'HOST': os.getenv('POSTGRES_HOST', 'db'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+if os.getenv('USE_SQLITE', 'False') == 'True':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'tennisiq_db'),
+            'USER': os.getenv('POSTGRES_USER', 'tennisiq_user'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'tennisiq_pass'),
+            'HOST': os.getenv('POSTGRES_HOST', 'db'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
+    }
 
 
 # Custom User Model
@@ -144,12 +157,42 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
 }
 
-# Caching Configuration
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+# Caching:
+# - Default to LocMem in local/dev so endpoints don't 500 when Redis is absent.
+# - Opt in to Redis cache via USE_REDIS_CACHE=True.
+if os.getenv('USE_REDIS_CACHE', 'False') == 'True':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
+        }
     }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'tennisiq-local-cache',
+        }
+    }
+
+SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
+
+# ── Celery ────────────────────────────────────────────────────────────────────
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# ── Django Channels ───────────────────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.getenv('REDIS_URL', 'redis://localhost:6379/2')],
+        },
+    },
 }
 
 # Logging Configuration

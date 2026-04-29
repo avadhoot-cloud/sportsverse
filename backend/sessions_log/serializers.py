@@ -18,3 +18,4 @@ class MatchSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MatchSession
         fields = '__all__'
+        read_only_fields = ['user']

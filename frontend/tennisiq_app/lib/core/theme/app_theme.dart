@@ -14,10 +14,9 @@ class AppTheme {
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
-        background: backgroundColor,
         surface: cardColor,
       ),
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: cardColor,
         elevation: 0,
         shape: RoundedRectangleBorder(

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 class ImuSample {
   final int timestampMs;
   final double accelX;
@@ -20,7 +22,6 @@ class ImuSample {
   });
 
   double get accelerationMagnitude {
-    import 'dart:math';
     return sqrt((accelX * accelX) + (accelY * accelY) + (accelZ * accelZ));
   }
 

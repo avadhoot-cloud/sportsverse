@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../watch/providers/watch_connection_provider.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'package:dio/dio.dart';
 
 class WatchSessionScreen extends ConsumerStatefulWidget {
   final String mode; // watch_only or fusion

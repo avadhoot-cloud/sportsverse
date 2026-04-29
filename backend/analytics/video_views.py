@@ -1,55 +1,15 @@
 import os
-import threading
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from sessions_log.models import MatchSession, StrokeEvent
-from .models import VideoMetrics
-from .video_analyzer import MatchAnalyzer
+from sessions_log.models import MatchSession
+from .models import ProcessingJob
+from .tasks import process_video_task
+from .camera_validator import CameraValidator
 
-# Memory constraint threading boundary tracking explicit ids dynamically
-_processing_queue = {}
-
-def process_video_task(video_path: str, session_id: int):
-    """Background processor utilizing the explicit MatchAnalyzer CV structure"""
-    _processing_queue[session_id] = {'status': 'processing'}
-    
-    try:
-        analyzer = MatchAnalyzer()
-        results = analyzer.analyze_video(video_path, session_id)
-        
-        session = MatchSession.objects.filter(id=session_id).first()
-        if session:
-            # Generate bounded VideoMetrics
-            VideoMetrics.objects.update_or_create(
-                session=session,
-                defaults=results.video_metrics
-            )
-            
-            # Map Stroke Events strictly dynamically
-            for stroke in results.stroke_events:
-                StrokeEvent.objects.create(
-                    session=session,
-                    timestamp_ms=stroke['timestamp_ms'],
-                    stroke_type=stroke['stroke_type'],
-                    confidence=stroke['confidence'],
-                    source='video'
-                )
-                
-            session.is_synced = True
-            session.duration_seconds = len(results.frame_annotations) # (Mocks bounding lengths loosely, safely)
-            session.save()
-            
-        _processing_queue[session_id] = {
-            'status': 'done',
-            'metrics': results.video_metrics,
-            'strokes_detected': len(results.stroke_events)
-        }
-    except Exception as e:
-        _processing_queue[session_id] = {'status': 'error', 'error': str(e)}
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -72,11 +32,23 @@ def upload_video(request):
         for chunk in video_file.chunks():
             f.write(chunk)
             
-    # Fork threading loop seamlessly executing the local analyzer
-    thread = threading.Thread(target=process_video_task, args=(video_path, session.id))
-    thread.daemon = True
-    thread.start()
-    
+    # VALIDATION BARRIER
+    validator = CameraValidator()
+    result = validator.validate(video_path)
+    if not result.accepted:
+        try:
+            os.remove(video_path)
+        except OSError:
+            pass # Fails gracefully if another thread/view locks it
+            
+        return Response({
+            'error': 'validation_failed',
+            'alerts': result.alerts
+        }, status=400)
+            
+    # Dispatch to Celery — returns immediately; worker runs in a separate process
+    process_video_task.delay(video_path, session.id)
+
     return Response({
         'session_id': session.id,
         'status': 'processing'
@@ -86,7 +58,12 @@ def upload_video(request):
 @permission_classes([IsAuthenticated])
 def video_status(request, session_id):
     # Verify secure context bounds securely
-    get_object_or_404(MatchSession, id=session_id, user=request.user)
+    session = get_object_or_404(MatchSession, id=session_id, user=request.user)
     
-    status_data = _processing_queue.get(session_id, {'status': 'not_found'})
+    try:
+        job = ProcessingJob.objects.get(session=session)
+        status_data = {'status': job.status, 'error': job.error_message}
+    except ProcessingJob.DoesNotExist:
+        status_data = {'status': 'not_found'}
+        
     return Response(status_data)

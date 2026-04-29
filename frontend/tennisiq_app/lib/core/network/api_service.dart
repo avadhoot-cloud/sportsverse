@@ -6,7 +6,9 @@ class ApiService {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  ApiService()
+  final void Function()? onUnauthenticated;
+
+  ApiService({this.onUnauthenticated})
       : _dio = Dio(BaseOptions(
           baseUrl: ApiConstants.baseUrl,
           connectTimeout: const Duration(seconds: 10),
@@ -56,6 +58,9 @@ class ApiService {
               } catch (refreshError) {
                 // Refresh failed, logout user logically
                 await _secureStorage.deleteAll();
+                if (onUnauthenticated != null) {
+                  onUnauthenticated!();
+                }
                 return handler.next(e);
               }
             }

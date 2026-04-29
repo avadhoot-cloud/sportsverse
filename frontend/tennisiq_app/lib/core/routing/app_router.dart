@@ -5,7 +5,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/dashboard/presentation/home_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/session/presentation/session_placeholders.dart';
+import '../../features/session/presentation/session_placeholders.dart' hide SessionDetailScreen;
 import '../../features/watch/presentation/watch_scan_screen.dart';
 import '../../features/session/presentation/watch_session_screen.dart';
 import '../../features/session/presentation/video_session_screen.dart';

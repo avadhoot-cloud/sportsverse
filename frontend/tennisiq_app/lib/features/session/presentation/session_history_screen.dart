@@ -47,7 +47,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                       onSelected: (selected) {
                         setState(() => _selectedFilter = filter);
                       },
-                      selectedColor: const Color(0xFF00E5A0).withOpacity(0.2),
+                      selectedColor: const Color(0xFF00E5A0).withValues(alpha: 0.2),
                       checkmarkColor: const Color(0xFF00E5A0),
                       labelStyle: TextStyle(
                         color: isSelected ? const Color(0xFF00E5A0) : Colors.white70,
@@ -103,7 +103,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                               child: Row(
                                 children: [
                                   CircleAvatar(
-                                    backgroundColor: const Color(0xFF00E5A0).withOpacity(0.1),
+                                    backgroundColor: const Color(0xFF00E5A0).withValues(alpha: 0.1),
                                     child: Icon(
                                       s['mode'] == 'video_only' ? Icons.videocam : (s['mode'] == 'watch_only' ? Icons.watch : Icons.merge_type),
                                       color: const Color(0xFF00E5A0),

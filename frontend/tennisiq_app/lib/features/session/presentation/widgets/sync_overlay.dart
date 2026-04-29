@@ -61,7 +61,7 @@ class _SyncOverlayState extends State<SyncOverlay> {
     }
 
     return Container(
-      color: Colors.black.withOpacity(0.9),
+      color: Colors.black.withValues(alpha: 0.9),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

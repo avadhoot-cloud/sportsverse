@@ -25,6 +25,13 @@ class SessionModePickerScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _ModeCard(
+                title: 'Upload Full Video',
+                description: 'Upload an existing match video from your device to analyze performance using our Computer Vision engine.',
+                icon: Icons.upload_file,
+                onStart: () => context.push('/session-active/video_only'),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
                 title: 'Watch Only',
                 description: 'Pair your smartwatch via BLE to track heart rate, peak acceleration, fatigue, and swing intensity.',
                 icon: Icons.watch,

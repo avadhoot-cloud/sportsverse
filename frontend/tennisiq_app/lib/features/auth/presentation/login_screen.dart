@@ -21,7 +21,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _showToast(BuildContext context, String message, {bool isError = true}) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(isError ? Icons.error_outline : Icons.check_circle_outline,
+                color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
+          ],
+        ),
+        backgroundColor: isError ? const Color(0xFFCF6679) : const Color(0xFF00E5A0),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   void _login() {
+    if (_usernameController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      _showToast(context, 'Username and password cannot be empty.');
+      return;
+    }
     FocusScope.of(context).unfocus();
     ref.read(authProvider.notifier).login(
       _usernameController.text.trim(),
@@ -35,9 +60,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (next.status == AuthStatus.authenticated) {
         context.go('/dashboard');
       } else if (next.status == AuthStatus.error && next.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!), backgroundColor: Colors.redAccent),
-        );
+        _showToast(context, next.errorMessage!);
       }
     });
 

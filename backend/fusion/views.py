@@ -9,9 +9,9 @@ from .features import FusionFeatureExtractor
 from .scorer import FusionScorer
 from django_ratelimit.decorators import ratelimit
 
-@ratelimit(key='user', rate='100/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@ratelimit(key='user', rate='100/m', block=True)
 def analyze_fusion(request):
     session_id = request.data.get('session_id')
     

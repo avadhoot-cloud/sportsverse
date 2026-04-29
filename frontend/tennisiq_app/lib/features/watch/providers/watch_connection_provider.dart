@@ -94,7 +94,7 @@ class WatchConnectionNotifier extends StateNotifier<WatchState> {
     state = state.copyWith(status: WatchConnectionState.connecting, device: device, errorMessage: null);
 
     try {
-      await device.connect();
+      await device.connect(license: License.free);
       _handleConnectionSuccess(device);
     } catch (e) {
       _handleConnectionLoss();
@@ -122,8 +122,7 @@ class WatchConnectionNotifier extends StateNotifier<WatchState> {
     for (var service in services) {
       if (service.uuid.toString() == _targetServiceUuid) { // Fallback checking
         for (var characteristic in service.characteristics) {
-          // In production, match exactly `characteristic.uuid.toString() == _targetCharUuid`
-          if (characteristic.properties.notify) {
+          if (characteristic.uuid.toString() == _targetCharUuid && characteristic.properties.notify) {
             await characteristic.setNotifyValue(true);
             _charSubscription = characteristic.lastValueStream.listen((value) {
               if (value.isNotEmpty) {
@@ -154,7 +153,7 @@ class WatchConnectionNotifier extends StateNotifier<WatchState> {
       await Future.delayed(Duration(seconds: delaySeconds));
       
       try {
-        await _targetDevice!.connect();
+        await _targetDevice!.connect(license: License.free);
         _handleConnectionSuccess(_targetDevice!);
       } catch (e) {
         _handleConnectionLoss(); // Recursive re-try 

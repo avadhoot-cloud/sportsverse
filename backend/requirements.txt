@@ -10,5 +10,17 @@ numpy
 joblib
 opencv-python
 ultralytics
-mediapipe
+# MediaPipe:
+# - Python <=3.12: use solutions-capable builds for mp.solutions.pose
+# - Python 3.13+: available wheels are tasks-only; app degrades gracefully
+mediapipe==0.10.14; python_version < "3.13"
+mediapipe>=0.10.30,<0.11; python_version >= "3.13"
 scipy
+django-ratelimit
+# Phase 4 — Async infrastructure
+celery[redis]>=5.3
+redis>=5.0
+channels>=4.0
+channels-redis>=4.1
+daphne>=4.0
+django-redis>=5.4
