@@ -30,3 +30,7 @@ django-ratelimit>=4.1.0  # Per-user/IP rate limits on API views
 
 # Development & Testing (optional)
 django-debug-toolbar>=4.0.0  # For debugging (development only)
+
+python-dotenv
+djangorestframework-simplejwt
+google-generativeai

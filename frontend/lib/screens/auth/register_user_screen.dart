@@ -5,6 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_button.dart';
+import 'package:sportsverse_app/widgets/elite_text_input.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
 class RegisterUserScreen extends StatefulWidget {
   const RegisterUserScreen({super.key});
 
@@ -33,7 +39,6 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
   @override
   void initState() {
     super.initState();
-    // Auto-generate username suggestion when first/last name changes
     _firstNameController.addListener(_generateUsernameSuggestion);
     _lastNameController.addListener(_generateUsernameSuggestion);
   }
@@ -41,17 +46,15 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
   void _generateUsernameSuggestion() {
     if (_firstNameController.text.isNotEmpty &&
         _lastNameController.text.isNotEmpty) {
-      // Generate username like: firstName.lastName.userType.timestamp
       final firstName = _firstNameController.text.toLowerCase().trim();
       final lastName = _lastNameController.text.toLowerCase().trim();
       final userType = _selectedUserType.toLowerCase();
       final timestamp = DateTime.now().millisecondsSinceEpoch
           .toString()
-          .substring(8); // Last 5 digits
+          .substring(8);
 
       final suggestion = '${firstName}_${lastName}_${userType}_$timestamp';
 
-      // Only update if the field is empty or contains a previous suggestion
       if (_usernameController.text.isEmpty ||
           _usernameController.text.contains('_${userType}_')) {
         _usernameController.text = suggestion;
@@ -119,26 +122,20 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
             : null,
       );
       _showSnackBar('User registered successfully!', Colors.green);
-      _formKey.currentState!.reset(); // Clear form
+      _formKey.currentState!.reset();
       setState(() {
         _selectedDateOfBirth = null;
         _selectedGender = null;
-        _usernameController.clear(); // Clear auto-generated username
+        _usernameController.clear();
       });
     } catch (e) {
       String errorMessage = authProvider.errorMessage ?? e.toString();
-
-      // Show more user-friendly error messages
       if (errorMessage.contains('This username is already taken')) {
         errorMessage = 'Username is already taken. Try a different username.';
-        _generateUsernameSuggestion(); // Auto-generate a new suggestion
-      } else if (errorMessage.contains(
-        'A user with this email already exists',
-      )) {
-        errorMessage =
-            'Email is already registered. Try a different email or leave it empty.';
+        _generateUsernameSuggestion();
+      } else if (errorMessage.contains('A user with this email already exists')) {
+        errorMessage = 'Email is already registered. Try a different email.';
       }
-
       _showSnackBar(errorMessage, Colors.red);
     }
   }
@@ -163,241 +160,234 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
         content: Text(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(10),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Register New User',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
-      body: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          return authProvider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        DropdownButtonFormField<String>(
-                          value: _selectedUserType,
-                          decoration: const InputDecoration(
-                            labelText: 'User Type',
-                            prefixIcon: Icon(Icons.group),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'COACH',
-                              child: Text('Coach'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'STAFF',
-                              child: Text('Staff'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedUserType = value!;
-                              _generateUsernameSuggestion(); // Regenerate username with new user type
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _usernameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter username.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _emailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Email is required.';
-                            }
-                            if (!RegExp(
-                              r'^[^@]+@[^@]+\.[^@]+',
-                                ).hasMatch(value)) {
-                              return 'Please enter a valid email address.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter password.';
-                            }
-                            if (value.length < 8) {
-                              return 'Password must be at least 8 characters long.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Confirm Password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please confirm password.';
-                            }
-                            if (value != _passwordController.text) {
-                              return 'Passwords do not match.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _firstNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'First Name',
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter first name.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _lastNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Last Name',
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter last name.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextFormField(
-                          controller: _phoneNumberController,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone Number (Optional)',
-                            prefixIcon: Icon(Icons.phone),
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 16.0),
-                        DropdownButtonFormField<String>(
-                          value: _selectedGender,
-                          decoration: const InputDecoration(
-                            labelText: 'Gender (Optional)',
-                            prefixIcon: Icon(Icons.wc),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'M', child: Text('Male')),
-                            DropdownMenuItem(value: 'F', child: Text('Female')),
-                            DropdownMenuItem(value: 'O', child: Text('Other')),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedGender = value;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        ListTile(
-                          title: Text(
-                            _selectedDateOfBirth == null
-                                ? 'Select Date of Birth (Required for Students)'
-                                : 'Date of Birth: ${DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!)}',
-                          ),
-                          trailing: const Icon(Icons.calendar_today),
-                          onTap: () => _selectDate(context),
-                        ),
-                        if (_selectedUserType == 'STUDENT') ...[
-                          const SizedBox(height: 24.0),
+      extendBodyBehindAppBar: true,
+      appBar: const GlassHeader(title: 'REGISTER USER'),
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/login_screen.png',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.primary.withOpacity(0.4),
+                      theme.primary.withOpacity(0.95),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Consumer<AuthProvider>(
+                builder: (context, authProvider, child) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: theme.mobileMargin),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 32.0),
                           Text(
-                            'Parent Details (For Student)',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
+                            'JOIN THE\nACADEMY.',
+                            style: theme.display1.copyWith(
+                              height: 1.1,
+                              color: theme.surfaceContainerLowest,
+                            ),
+                          ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
                           const SizedBox(height: 16.0),
-                          TextFormField(
-                            controller: _parentNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Parent Name (Optional)',
-                              prefixIcon: Icon(Icons.person_2),
+                          Text(
+                            'Enter your details to create an account.',
+                            style: theme.body.copyWith(color: theme.surfaceContainerLowest.withOpacity(0.7)),
+                          ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
+                          const SizedBox(height: 40.0),
+                          
+                          // Dropdown for User Type
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(24.0),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedUserType,
+                                decoration: InputDecoration(
+                                  labelText: 'User Type',
+                                  labelStyle: theme.subhead.copyWith(color: theme.primary),
+                                  border: InputBorder.none,
+                                ),
+                                dropdownColor: theme.surfaceContainerLowest,
+                                items: const [
+                                  DropdownMenuItem(value: 'COACH', child: Text('Coach')),
+                                  DropdownMenuItem(value: 'STAFF', child: Text('Staff')),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedUserType = value!;
+                                    _generateUsernameSuggestion();
+                                  });
+                                },
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16.0),
-                          TextFormField(
-                            controller: _parentPhoneNumberController,
-                            decoration: const InputDecoration(
-                              labelText: 'Parent Phone Number (Optional)',
-                              prefixIcon: Icon(Icons.phone_android),
-                            ),
+
+                          EliteTextInput(
+                            controller: _usernameController,
+                            labelText: 'Username',
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _emailController,
+                            labelText: 'Email',
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _passwordController,
+                            labelText: 'Password',
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _confirmPasswordController,
+                            labelText: 'Confirm Password',
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _firstNameController,
+                            labelText: 'First Name',
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _lastNameController,
+                            labelText: 'Last Name',
+                          ),
+                          const SizedBox(height: 16.0),
+                          EliteTextInput(
+                            controller: _phoneNumberController,
+                            labelText: 'Phone Number (Optional)',
                             keyboardType: TextInputType.phone,
                           ),
                           const SizedBox(height: 16.0),
-                          TextFormField(
-                            controller: _parentEmailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Parent Email (Optional)',
-                              prefixIcon: Icon(Icons.email_outlined),
+
+                          // Gender Dropdown
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(24.0),
                             ),
-                            keyboardType: TextInputType.emailAddress,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedGender,
+                                decoration: InputDecoration(
+                                  labelText: 'Gender (Optional)',
+                                  labelStyle: theme.subhead.copyWith(color: theme.primary),
+                                  border: InputBorder.none,
+                                ),
+                                dropdownColor: theme.surfaceContainerLowest,
+                                items: const [
+                                  DropdownMenuItem(value: 'M', child: Text('Male')),
+                                  DropdownMenuItem(value: 'F', child: Text('Female')),
+                                  DropdownMenuItem(value: 'O', child: Text('Other')),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedGender = value;
+                                  });
+                                },
+                              ),
+                            ),
                           ),
+                          const SizedBox(height: 16.0),
+
+                          // Date of Birth Picker
+                          GestureDetector(
+                            onTap: () => _selectDate(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: theme.surfaceContainer,
+                                borderRadius: BorderRadius.circular(24.0),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _selectedDateOfBirth == null
+                                          ? 'Select Date of Birth'
+                                          : 'Date of Birth: ${DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!)}',
+                                      style: theme.body,
+                                    ),
+                                  ),
+                                  Icon(Icons.calendar_today, color: theme.primary, size: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          if (_selectedUserType == 'STUDENT') ...[
+                            const SizedBox(height: 32.0),
+                            Text(
+                              'PARENT DETAILS',
+                              style: theme.subhead.copyWith(color: theme.surfaceContainerLowest),
+                            ),
+                            const SizedBox(height: 16.0),
+                            EliteTextInput(
+                              controller: _parentNameController,
+                              labelText: 'Parent Name',
+                            ),
+                            const SizedBox(height: 16.0),
+                            EliteTextInput(
+                              controller: _parentPhoneNumberController,
+                              labelText: 'Parent Phone Number',
+                              keyboardType: TextInputType.phone,
+                            ),
+                            const SizedBox(height: 16.0),
+                            EliteTextInput(
+                              controller: _parentEmailController,
+                              labelText: 'Parent Email',
+                              keyboardType: TextInputType.emailAddress,
+                            ),
+                          ],
+                          
+                          const SizedBox(height: 40.0),
+                          EliteButton(
+                            text: 'Register User',
+                            isLoading: authProvider.isLoading,
+                            onPressed: _registerUser,
+                            variant: EliteButtonVariant.royal,
+                          ),
+                          const SizedBox(height: 40.0),
                         ],
-                        const SizedBox(height: 24.0),
-                        ElevatedButton(
-                          onPressed: _registerUser,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                            backgroundColor: Colors.blue.shade700,
-                            foregroundColor: Colors.white,
-                            elevation: 5,
-                            shadowColor: Colors.blue.shade200,
-                          ),
-                          child: const Text('Register User'),
-                        ),
-                      ],
+                      ).animate().fadeIn(duration: 400.ms, delay: 200.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
                     ),
-                  ),
-                );
-        },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

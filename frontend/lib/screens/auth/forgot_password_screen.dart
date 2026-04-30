@@ -4,6 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/auth_api.dart';
 import 'package:sportsverse_app/screens/auth/password_reset_confirm_screen.dart';
 
+import 'package:sportsverse_app/api/auth_api.dart';
+import 'package:sportsverse_app/screens/auth/password_reset_confirm_screen.dart';
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_button.dart';
+import 'package:sportsverse_app/widgets/elite_text_input.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -34,88 +42,54 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _emailController.text.trim(),
       );
 
-      print('DEBUG: Got response: $response'); // Debug log
-
-      // Check if we got a reset link (development mode)
       if (response['reset_link'] != null && mounted) {
         String resetLink = response['reset_link'];
-        print('DEBUG: Got reset link: $resetLink'); // Debug log
-
-        // Extract UID and token from URL
         final uri = Uri.parse(resetLink);
         final pathSegments = uri.pathSegments;
-
-        print('DEBUG: Path segments: $pathSegments'); // Debug log
-
-        // Filter out empty segments and find reset-password
-        final nonEmptySegments = pathSegments
-            .where((s) => s.isNotEmpty)
-            .toList();
+        final nonEmptySegments = pathSegments.where((s) => s.isNotEmpty).toList();
 
         if (nonEmptySegments.length >= 3 &&
             nonEmptySegments[nonEmptySegments.length - 3] == 'reset-password') {
           final uid = nonEmptySegments[nonEmptySegments.length - 2];
           final token = nonEmptySegments[nonEmptySegments.length - 1];
 
-          print('DEBUG: Extracted UID: $uid, Token: $token'); // Debug log
-
-          // Show dialog and navigate to password reset screen
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Password Reset'),
-              content: const Text(
-                'Since email is not configured, we can take you directly to reset your password. '
-                'Would you like to proceed?',
+              backgroundColor: EliteTheme.of(context).surfaceContainerLowest,
+              title: Text('Password Reset', style: EliteTheme.of(context).subhead),
+              content: Text(
+                'Since email is not configured, we can take you directly to reset your password. Would you like to proceed?',
+                style: EliteTheme.of(context).body,
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel', style: EliteTheme.of(context).caption),
                 ),
-                ElevatedButton(
+                EliteButton(
+                  text: 'Reset Password',
                   onPressed: () {
-                    Navigator.pop(context); // Close dialog
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            PasswordResetConfirmScreen(uid: uid, token: token),
+                        builder: (context) => PasswordResetConfirmScreen(uid: uid, token: token),
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Reset Password'),
+                  variant: EliteButtonVariant.royal,
                 ),
               ],
             ),
           );
-        } else {
-          print('DEBUG: Failed to parse reset link path segments');
         }
       } else {
-        print('DEBUG: No reset_link in response or not mounted');
-        // Show success message if email was sent
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response['message'] ?? 'Password reset link sent to your email',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackBar(response['message'] ?? 'Password reset link sent to your email', Colors.green);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar(e.toString().replaceAll('Exception: ', ''), Colors.red);
       }
     } finally {
       if (mounted) {
@@ -126,107 +100,101 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Forgot Password'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                const Icon(Icons.lock_reset, size: 80, color: Colors.blue),
-                const SizedBox(height: 24),
-                const Text(
-                  'Reset Your Password',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Enter your email address and we\'ll help you reset your password.',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    hintText: 'Enter your registered email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email is required';
-                    }
-                    if (!RegExp(
-                      r'^[^@]+@[^@]+\.[^@]+',
-                    ).hasMatch(value.trim())) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
-                  onFieldSubmitted: (_) => _requestPasswordReset(),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _requestPasswordReset,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text('Sending...'),
-                          ],
-                        )
-                      : const Text(
-                          'Send Reset Link',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                ),
-                const SizedBox(height: 32),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Back to Login',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+      extendBodyBehindAppBar: true,
+      appBar: const GlassHeader(title: 'FORGOT PASSWORD'),
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/login_screen.png',
+                fit: BoxFit.cover,
+              ),
             ),
-          ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.primary.withOpacity(0.4),
+                      theme.primary.withOpacity(0.95),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: theme.mobileMargin),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 80.0),
+                      Text(
+                        'RECOVER\nACCESS.',
+                        style: theme.display1.copyWith(
+                          height: 1.1,
+                          color: theme.surfaceContainerLowest,
+                        ),
+                      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
+                      const SizedBox(height: 16.0),
+                      Text(
+                        'Enter your email to receive a password reset link.',
+                        style: theme.body.copyWith(color: theme.surfaceContainerLowest.withOpacity(0.7)),
+                      ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
+                      const SizedBox(height: 48.0),
+                      
+                      EliteTextInput(
+                        controller: _emailController,
+                        labelText: 'Email Address',
+                        keyboardType: TextInputType.emailAddress,
+                      ).animate().fadeIn(duration: 400.ms, delay: 200.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
+                      
+                      const SizedBox(height: 32.0),
+                      
+                      EliteButton(
+                        text: 'Send Reset Link',
+                        isLoading: _isLoading,
+                        onPressed: _requestPasswordReset,
+                        variant: EliteButtonVariant.royal,
+                      ).animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05, curve: Curves.easeOutExpo),
+                      
+                      const SizedBox(height: 32.0),
+                      
+                      Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'BACK TO LOGIN',
+                            style: theme.subhead.copyWith(color: theme.surfaceContainerLowest),
+                          ),
+                        ),
+                      ).animate().fadeIn(duration: 400.ms, delay: 400.ms),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

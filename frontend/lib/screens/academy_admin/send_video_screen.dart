@@ -94,7 +94,7 @@ Future<void> _fetchStudents(String batchId) async {
   // --- LOGIC ---
 
   Future<void> _pickVideo() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.video,
       withData: true, 
     );

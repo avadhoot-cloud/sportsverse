@@ -17,6 +17,7 @@ import 'package:sportsverse_app/screens/academy_admin/take_attendance_screen.dar
 import 'package:sportsverse_app/screens/academy_admin/view_attendance_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/attendance_screen.dart';
 import 'package:sportsverse_app/screens/student/student_profile_screen.dart';
+import 'package:sportsverse_app/theme/elite_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,12 +63,7 @@ class _SportsVerseAppState extends State<SportsVerseApp> {
       title: 'SportsVerse',
       debugShowCheckedModeBanner: false,
 
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        fontFamily: 'Inter',
-        useMaterial3: true,
-      ),
+      theme: EliteThemeData.getThemeData(),
 
       // ✅ NO FUTUREBUILDER — SIMPLIFIED FLOW
       home: Consumer<AuthProvider>(
@@ -135,55 +131,9 @@ if (!authProvider.isAuthenticated) {
         '/login': (context) => const LoginScreen(),
       },
 
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            cardTheme: Theme.of(context).cardTheme.copyWith(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-            ),
-            inputDecorationTheme: const InputDecorationTheme(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12.0)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                borderSide: BorderSide(color: Colors.blueGrey, width: 1.0),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                borderSide: BorderSide(color: Colors.blue, width: 2.0),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                borderSide: BorderSide(color: Colors.red, width: 2.0),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                borderSide: BorderSide(color: Colors.red, width: 2.0),
-              ),
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 16.0,
-                horizontal: 16.0,
-              ),
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                textStyle: const TextStyle(fontSize: 18),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      // Removed builder because we are moving to the Elite Curator Design System,
+      // which uses custom widgets (EliteCard, EliteButton, etc.) rather than
+      // overriding raw Material styles globally.
     );
   }
 }
