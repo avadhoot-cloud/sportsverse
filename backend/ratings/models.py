@@ -55,10 +55,10 @@ class PlayerRatingProfile(models.Model):
     matches_played_singles = models.PositiveIntegerField(default=0)
     matches_played_doubles = models.PositiveIntegerField(default=0)
 
-    # Reliability: 0–100; < 10 matches → provisional
-    reliability = models.PositiveSmallIntegerField(
-        default=0,
-        help_text="0–100; provisional when < 10 matches; 100 = fully established",
+    # Reliability: 0.00–100.00; Baseline is 50.00
+    reliability = models.DecimalField(
+        max_digits=5, decimal_places=2, default=50.00,
+        help_text="0–100; baseline 50.00. Dictates voting power in disputes.",
     )
 
     last_synced_at = models.DateTimeField(null=True, blank=True)
@@ -119,18 +119,18 @@ class RatingMatch(models.Model):
     ]
 
     STATUS_PENDING = "PENDING"
-    STATUS_VALIDATED = "VALIDATED"
-    STATUS_PROCESSING = "PROCESSING"
-    STATUS_PROCESSED = "PROCESSED"
-    STATUS_REJECTED = "REJECTED"
+    STATUS_CONFIRMED = "CONFIRMED"
     STATUS_DISPUTED = "DISPUTED"
+    STATUS_AUTO_RESOLVED = "AUTO_RESOLVED"
+    STATUS_ADMIN_RESOLVED = "ADMIN_RESOLVED"
+    STATUS_REJECTED = "REJECTED"
     STATUS_CHOICES = [
-        (STATUS_PENDING, "Pending confirmation"),
-        (STATUS_VALIDATED, "Validated"),
-        (STATUS_PROCESSING, "Processing"),
-        (STATUS_PROCESSED, "Processed"),
-        (STATUS_REJECTED, "Rejected"),
-        (STATUS_DISPUTED, "Disputed"),
+        (STATUS_PENDING, "Pending opponent confirmation"),
+        (STATUS_CONFIRMED, "Confirmed exactly"),
+        (STATUS_DISPUTED, "Major dispute (Admin Review)"),
+        (STATUS_AUTO_RESOLVED, "Auto-resolved (Weighted math)"),
+        (STATUS_ADMIN_RESOLVED, "Admin resolved"),
+        (STATUS_REJECTED, "Rejected/Nullified"),
     ]
 
     SOURCE_MANUAL = "MANUAL"
@@ -166,8 +166,10 @@ class RatingMatch(models.Model):
         help_text="List of participant user IDs, ordered: [winner_side..., loser_side...]",
     )
 
-    # score: flexible JSON, e.g. {"sets": [[6,3],[6,4]], "winner_ids": [1]}
-    score = models.JSONField(help_text="Match score as flexible JSON")
+    # score: flexible JSON submitted by reporter, e.g. {"sets": [{"set": 1, "reporter_score": 11, "opponent_score": 9}]}
+    score = models.JSONField(help_text="Match score submitted by reporter")
+    opponent_score = models.JSONField(null=True, blank=True, help_text="Match score submitted by opponent if differing")
+    resolved_score = models.JSONField(null=True, blank=True, help_text="The final, authorized score used for rating calculation")
 
     # Dedup hash: SHA-256 of (sorted(participants), date, canonical score string)
     dedup_hash = models.CharField(
@@ -185,6 +187,12 @@ class RatingMatch(models.Model):
 
     processed_at = models.DateTimeField(null=True, blank=True)
     source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+
+    # Validation & Evidence
+    deadline_at = models.DateTimeField(null=True, blank=True, help_text="Deadline for opponent action")
+    evidence_url = models.URLField(max_length=1024, null=True, blank=True)
+    is_processed_for_rating = models.BooleanField(default=False, help_text="Flag indicating Celery worker has applied the rating math")
+    fraud_score = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True, help_text="0.000 to 1.000 (IsolationForest anomaly score)")
 
     # Dispute / rollback flag
     rolled_back = models.BooleanField(default=False)
@@ -226,6 +234,10 @@ class RatingMatch(models.Model):
             self.dedup_hash = self.compute_dedup_hash(
                 self.participants, self.date, self.score
             )
+        # Auto-set 48-hour deadline for pending matches
+        if not self.deadline_at:
+            from datetime import timedelta
+            self.deadline_at = timezone.now() + timedelta(hours=48)
         super().save(*args, **kwargs)
 
 
@@ -294,3 +306,38 @@ class RatingAudit(models.Model):
             f"Audit player={self.player_id} match={self.match_id} "
             f"{self.old_rating}→{self.new_rating} ({sign}{self.delta}) [{self.method}]"
         )
+
+
+# ─── MatchAuditTrail ─────────────────────────────────────────────────────────
+
+class MatchAuditTrail(models.Model):
+    """
+    Tracks state changes, fraud flags, and admin interventions for a match.
+    """
+    match = models.ForeignKey(
+        RatingMatch, on_delete=models.CASCADE, related_name="status_audits"
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="User who triggered this change (can be null for system tasks)"
+    )
+    previous_status = models.CharField(max_length=20, choices=RatingMatch.STATUS_CHOICES, blank=True)
+    new_status = models.CharField(max_length=20, choices=RatingMatch.STATUS_CHOICES)
+    action_type = models.CharField(
+        max_length=50, 
+        help_text="e.g. SUBMITTED, COUNTER_SUBMITTED, AUTO_RESOLVED, FRAUD_FLAGGED, ADMIN_RESOLVED"
+    )
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Match Audit Trail"
+        verbose_name_plural = "Match Audit Trails"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["match"]),
+            models.Index(fields=["action_type"]),
+        ]
+
+    def __str__(self):
+        return f"Match {self.match_id} transition: {self.previous_status} -> {self.new_status} ({self.action_type})"

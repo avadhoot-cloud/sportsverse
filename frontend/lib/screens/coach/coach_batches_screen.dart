@@ -6,7 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/coach_api.dart';
 
-const Color _kGreen = Color(0xFF1B3D2F);
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_card.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
 
 class CoachBatchesScreen extends StatefulWidget {
   const CoachBatchesScreen({super.key});
@@ -36,14 +38,12 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7F9),
-      appBar: AppBar(
-        title: const Text('My Batches',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black),
+      backgroundColor: theme.surface,
+      appBar: GlassHeader(
+        title: 'My Batches',
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -51,7 +51,7 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
               _dashFuture = coachApi.getCoachDashboard();
               _studentFuture = coachApi.getCoachStudents();
             }),
-            icon: const Icon(Icons.refresh, color: Colors.black),
+            icon: Icon(Icons.refresh, color: theme.primary),
           ),
         ],
       ),
@@ -59,12 +59,12 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
         future: Future.wait([_dashFuture, _studentFuture]),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: theme.primary));
           }
           if (snapshot.hasError) {
             return Center(
               child: Text('Error: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red)),
+                  style: theme.body.copyWith(color: theme.error)),
             );
           }
 
@@ -78,14 +78,14 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
           }
 
           if (data.assignments.isEmpty) {
-            return const Center(
+            return Center(
               child: Text('No batches assigned yet.',
-                  style: TextStyle(color: Colors.grey)),
+                  style: theme.body.copyWith(color: theme.secondaryText)),
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             itemCount: data.assignments.length,
             itemBuilder: (context, index) {
               final a = data.assignments[index];
@@ -93,56 +93,46 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
               final scheduleStr = _formatSchedule(a.schedule);
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4)),
-                    ],
-                  ),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: EliteCard(
+                  padding: EdgeInsets.zero,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header gradient bar
                       Container(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [_kGreen, Color(0xFF2D5A46)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(18),
-                            topRight: Radius.circular(18),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                        decoration: BoxDecoration(
+                          color: theme.primary, // Navy header
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(32),
+                            topRight: Radius.circular(32),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.sports_tennis, color: Colors.white, size: 22),
-                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: theme.surfaceContainerLowest.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.sports_tennis, color: theme.surfaceContainerLowest, size: 24)
+                            ),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: Text(a.batchName,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
+                                  style: theme.display2.copyWith(color: theme.surfaceContainerLowest)),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.white24,
+                                color: theme.accent.withOpacity(0.9), // Lime accent
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(a.sport,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
+                                  style: theme.caption.copyWith(
+                                      color: theme.primary,
                                       fontWeight: FontWeight.bold)),
                             ),
                           ],
@@ -150,14 +140,15 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
                       ),
                       // Body
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            _infoRow(Icons.location_on_outlined, 'Branch', a.branch),
-                            const SizedBox(height: 10),
-                            _infoRow(Icons.schedule_outlined, 'Schedule', scheduleStr),
-                            const SizedBox(height: 10),
+                            _infoRow(theme, Icons.location_on_outlined, 'Branch', a.branch),
+                            const SizedBox(height: 16),
+                            _infoRow(theme, Icons.schedule_outlined, 'Schedule', scheduleStr),
+                            const SizedBox(height: 16),
                             _infoRow(
+                                theme,
                                 Icons.group_outlined,
                                 'Students',
                                 '$studentCount enrolled'),
@@ -175,15 +166,15 @@ class _CoachBatchesScreenState extends State<CoachBatchesScreen> {
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(EliteTheme theme, IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.grey),
-        const SizedBox(width: 8),
-        Text('$label: ', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        Icon(icon, size: 20, color: theme.secondaryText),
+        const SizedBox(width: 12),
+        Text('$label: ', style: theme.body.copyWith(color: theme.secondaryText)),
         Expanded(
           child: Text(value,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              style: theme.body.copyWith(fontWeight: FontWeight.bold),
               overflow: TextOverflow.ellipsis),
         ),
       ],

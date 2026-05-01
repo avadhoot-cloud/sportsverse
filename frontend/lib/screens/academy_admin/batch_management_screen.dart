@@ -1,5 +1,3 @@
-// sportsverse/frontend/sportsverse_app/lib/screens/academy_admin/batch_management_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/batch_api.dart';
 import 'package:sportsverse_app/api/branch_api.dart';
@@ -7,6 +5,11 @@ import 'package:sportsverse_app/api/auth_api.dart';
 import 'package:sportsverse_app/models/batch.dart';
 import 'package:sportsverse_app/models/branch.dart';
 import 'package:sportsverse_app/models/user.dart';
+
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_card.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
+import 'package:sportsverse_app/widgets/elite_button.dart';
 
 class BatchManagementScreen extends StatefulWidget {
   const BatchManagementScreen({super.key});
@@ -47,20 +50,23 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   }
 
   Future<void> _deleteBatch(Batch batch) async {
+    final theme = EliteTheme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Batch'),
-        content: Text('Are you sure you want to delete "${batch.name}"?'),
+        backgroundColor: theme.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Batch', style: theme.heading),
+        content: Text('Are you sure you want to delete "${batch.name}"?', style: theme.body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: theme.body),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            style: ElevatedButton.styleFrom(backgroundColor: theme.error),
+            child: Text('Delete', style: theme.body.copyWith(color: theme.surfaceContainerLowest, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -71,7 +77,7 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         await batchApi.deleteBatch(batch.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Batch deleted successfully')),
+            SnackBar(content: const Text('Batch deleted successfully'), backgroundColor: theme.primary),
           );
           _loadBatches();
         }
@@ -80,7 +86,7 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to delete batch: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: theme.error,
             ),
           );
         }
@@ -101,14 +107,13 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Batches'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: theme.surface,
+      appBar: const GlassHeader(title: 'Manage Batches'),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
           : errorMessage != null
           ? Center(
               child: Column(
@@ -116,114 +121,138 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                 children: [
                   Text(
                     'Error: $errorMessage',
-                    style: const TextStyle(color: Colors.red),
+                    style: theme.body.copyWith(color: theme.error),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadBatches,
-                    child: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
+                    child: Text('Retry', style: theme.body.copyWith(color: theme.surfaceContainerLowest)),
                   ),
                 ],
               ),
             )
           : batches.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.batch_prediction, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  Icon(Icons.batch_prediction, size: 64, color: theme.secondaryText),
+                  const SizedBox(height: 16),
                   Text(
                     'No batches found',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    style: theme.display2.copyWith(color: theme.secondaryText),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     'Add your first batch to get started',
-                    style: TextStyle(color: Colors.grey),
+                    style: theme.body.copyWith(color: theme.secondaryText),
                   ),
                 ],
               ),
             )
           : RefreshIndicator(
+              color: theme.primary,
               onRefresh: _loadBatches,
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(24),
                 itemCount: batches.length,
                 itemBuilder: (context, index) {
                   final batch = batches[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue,
-                        child: Icon(
-                          Icons.groups,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: Text(
-                        batch.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: EliteCard(
+                      onTap: () => _navigateToAddEditBatch(batch),
+                      padding: EdgeInsets.zero,
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Sport: ${batch.sportName}'),
-                          Text('Branch: ${batch.branchName}'),
-                          Text('Schedule: ${batch.scheduleDisplay}'),
-                          Text('Max Students: ${batch.maxStudents}')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: theme.primary,
+                              borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20))
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.groups, color: theme.surfaceContainerLowest, size: 24),
+                                    const SizedBox(width: 12),
+                                    Text(batch.name, style: theme.heading.copyWith(color: theme.surfaceContainerLowest)),
+                                  ]
+                                ),
+                                PopupMenuButton<String>(
+                                  icon: Icon(Icons.more_vert, color: theme.surfaceContainerLowest),
+                                  color: theme.surfaceContainerLowest,
+                                  onSelected: (value) {
+                                    switch (value) {
+                                      case 'edit':
+                                        _navigateToAddEditBatch(batch);
+                                        break;
+                                      case 'delete':
+                                        _deleteBatch(batch);
+                                        break;
+                                      case 'enrollments':
+                                        _navigateToEnrollments(batch);
+                                        break;
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit, color: theme.primary),
+                                          const SizedBox(width: 8),
+                                          Text('Edit', style: theme.body),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'enrollments',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.people, color: theme.accent),
+                                          const SizedBox(width: 8),
+                                          Text('View Enrollments', style: theme.body),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete, color: theme.error),
+                                          const SizedBox(width: 8),
+                                          Text('Delete', style: theme.body),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInfoRow(theme, Icons.sports, 'Sport', batch.sportName),
+                                const SizedBox(height: 8),
+                                _buildInfoRow(theme, Icons.apartment, 'Branch', batch.branchName),
+                                const SizedBox(height: 8),
+                                _buildInfoRow(theme, Icons.schedule, 'Schedule', batch.scheduleDisplay),
+                                const SizedBox(height: 8),
+                                _buildInfoRow(theme, Icons.group_add, 'Max Students', '${batch.maxStudents}'),
+                              ],
+                            ),
+                          )
                         ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'edit':
-                              _navigateToAddEditBatch(batch);
-                              break;
-                            case 'delete':
-                              _deleteBatch(batch);
-                              break;
-                            case 'enrollments':
-                              _navigateToEnrollments(batch);
-                              break;
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: Colors.blue),
-                                SizedBox(width: 8),
-                                Text('Edit'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'enrollments',
-                            child: Row(
-                              children: [
-                                Icon(Icons.people, color: Colors.green),
-                                SizedBox(width: 8),
-                                Text('View Enrollments'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Delete'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      onTap: () => _navigateToAddEditBatch(batch),
+                      )
                     ),
                   );
                 },
@@ -231,16 +260,29 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToAddEditBatch(),
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: theme.accent, // Lime!
+        child: Icon(Icons.add, color: theme.primary),
       ),
     );
   }
 
+  Widget _buildInfoRow(EliteTheme theme, IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: theme.secondaryText),
+        const SizedBox(width: 8),
+        Text('$label: ', style: theme.caption.copyWith(color: theme.secondaryText)),
+        Expanded(child: Text(value, style: theme.body.copyWith(fontWeight: FontWeight.bold))),
+      ]
+    );
+  }
+
   void _navigateToEnrollments(Batch batch) {
-    // TODO: Implement enrollment management screen
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Enrollments for ${batch.name} - Coming Soon!')),
+      SnackBar(
+        content: Text('Enrollments for ${batch.name} - Coming Soon!'),
+        backgroundColor: EliteTheme.of(context).primary
+      ),
     );
   }
 }
@@ -326,7 +368,6 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
       _feeController.text = widget.batch!.feePerSession?.toString() ?? '';
       _selectedPaymentPolicy = widget.batch!.paymentPolicy;
 
-
       // Find selected branch and sport
       if (branches.isNotEmpty) {
         _selectedBranch = branches.firstWhere(
@@ -374,9 +415,9 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
 
     if (_selectedBranch == null || _selectedSport == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select branch and sport'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please select branch and sport'),
+          backgroundColor: EliteTheme.of(context).error,
         ),
       );
       return;
@@ -384,9 +425,9 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
 
     if (_selectedDays.isEmpty || _startTime == null || _endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please set complete schedule'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please set complete schedule'),
+          backgroundColor: EliteTheme.of(context).error,
         ),
       );
       return;
@@ -419,7 +460,7 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Batch updated successfully')),
+            SnackBar(content: const Text('Batch updated successfully'), backgroundColor: EliteTheme.of(context).primary),
           );
         }
       } else {
@@ -435,7 +476,7 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Batch created successfully')),
+            SnackBar(content: const Text('Batch created successfully'), backgroundColor: EliteTheme.of(context).primary),
           );
         }
       }
@@ -449,40 +490,65 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(e.toString()), backgroundColor: EliteTheme.of(context).error),
         );
       }
     }
   }
 
+  InputDecoration _buildInputDecoration(EliteTheme theme, String label, String hint, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: theme.primary),
+      filled: true,
+      fillColor: theme.surfaceContainerLowest,
+      labelStyle: theme.body.copyWith(color: theme.secondaryText),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.surfaceContainer),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.surfaceContainer),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.error),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     if (_dataLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'Edit Batch' : 'Add Batch'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: theme.surface,
+        appBar: GlassHeader(title: isEditing ? 'Edit Batch' : 'Add Batch'),
+        body: Center(child: CircularProgressIndicator(color: theme.primary)),
       );
     }
 
     if (_dataError != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'Edit Batch' : 'Add Batch'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
+        backgroundColor: theme.surface,
+        appBar: GlassHeader(title: isEditing ? 'Edit Batch' : 'Add Batch'),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Error: $_dataError'),
+              Text('Error: $_dataError', style: theme.body.copyWith(color: theme.error)),
+              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadInitialData,
-                child: const Text('Retry'),
+                style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
+                child: Text('Retry', style: theme.body.copyWith(color: theme.surfaceContainerLowest)),
               ),
             ],
           ),
@@ -491,25 +557,19 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit Batch' : 'Add Batch'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: theme.surface,
+      appBar: GlassHeader(title: isEditing ? 'Edit Batch' : 'Add Batch'),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Batch Name *',
-                  hintText: 'e.g., Morning Cricket Batch',
-                  prefixIcon: Icon(Icons.batch_prediction),
-                ),
+                style: theme.body,
+                decoration: _buildInputDecoration(theme, 'Batch Name *', 'e.g., Morning Cricket Batch', Icons.batch_prediction),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Batch name is required';
@@ -517,13 +577,13 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               DropdownButtonFormField<Branch>(
                 value: _selectedBranch,
-                decoration: const InputDecoration(
-                  labelText: 'Branch *',
-                  prefixIcon: Icon(Icons.store),
-                ),
+                dropdownColor: theme.surfaceContainerLowest,
+                style: theme.body,
+                icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
+                decoration: _buildInputDecoration(theme, 'Branch *', '', Icons.store),
                 items: branches.map((branch) {
                   return DropdownMenuItem(
                     value: branch,
@@ -542,13 +602,13 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               DropdownButtonFormField<Sport>(
                 value: _selectedSport,
-                decoration: const InputDecoration(
-                  labelText: 'Sport *',
-                  prefixIcon: Icon(Icons.sports),
-                ),
+                dropdownColor: theme.surfaceContainerLowest,
+                style: theme.body,
+                icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
+                decoration: _buildInputDecoration(theme, 'Sport *', '', Icons.sports),
                 items: sports.map((sport) {
                   return DropdownMenuItem(
                     value: sport,
@@ -567,14 +627,11 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               TextFormField(
                 controller: _maxStudentsController,
-                decoration: const InputDecoration(
-                  labelText: 'Maximum Students *',
-                  hintText: '20',
-                  prefixIcon: Icon(Icons.people),
-                ),
+                style: theme.body,
+                decoration: _buildInputDecoration(theme, 'Maximum Students *', '20', Icons.people),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -587,14 +644,11 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               TextFormField(
                 controller: _feeController,
-                decoration: const InputDecoration(
-                  labelText: 'Fee Per Session',
-                  hintText: 'e.g., 500',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
+                style: theme.body,
+                decoration: _buildInputDecoration(theme, 'Fee Per Session', 'e.g., 500', Icons.attach_money),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -607,13 +661,13 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedPaymentPolicy,
-                decoration: const InputDecoration(
-                  labelText: 'Payment Policy',
-                  prefixIcon: Icon(Icons.payment),
-                ),
+                dropdownColor: theme.surfaceContainerLowest,
+                style: theme.body,
+                icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
+                decoration: _buildInputDecoration(theme, 'Payment Policy', '', Icons.payment),
                 items: ['PRE_PAID', 'POST_PAID'].map((policy) {
                   return DropdownMenuItem(
                     value: policy,
@@ -632,50 +686,65 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 24),
-              const Text(
+              const SizedBox(height: 32),
+              Text(
                 'Schedule',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: theme.display2,
               ),
-              const SizedBox(height: 12),
-              const Text('Select Days:'),
+              const SizedBox(height: 16),
+              Text('Select Days:', style: theme.caption.copyWith(color: theme.secondaryText)),
+              const SizedBox(height: 8),
               Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: _weekDays.map((day) {
                   final isSelected = _selectedDays.contains(day);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(day),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedDays.add(day);
-                          } else {
-                            _selectedDays.remove(day);
-                          }
-                        });
-                      },
+                  return FilterChip(
+                    label: Text(day, style: theme.body.copyWith(
+                      color: isSelected ? theme.primary : theme.text,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+                    )),
+                    selected: isSelected,
+                    selectedColor: theme.accent, // Lime
+                    backgroundColor: theme.surfaceContainerLowest,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isSelected ? theme.accent : theme.surfaceContainer),
                     ),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedDays.add(day);
+                        } else {
+                          _selectedDays.remove(day);
+                        }
+                      });
+                    },
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
-                    child: ListTile(
-                      title: const Text('Start Time'),
-                      subtitle: Text(
-                        _startTime != null
-                            ? _startTime!.format(context)
-                            : 'Select time',
-                      ),
-                      trailing: const Icon(Icons.access_time),
+                    child: EliteCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       onTap: () async {
                         final time = await showTimePicker(
                           context: context,
                           initialTime: _startTime ?? TimeOfDay.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.light(
+                                  primary: theme.primary,
+                                  onPrimary: theme.surfaceContainerLowest,
+                                  onSurface: theme.text,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
                         );
                         if (time != null) {
                           setState(() {
@@ -683,21 +752,47 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                           });
                         }
                       },
-                    ),
-                  ),
-                  Expanded(
-                    child: ListTile(
-                      title: const Text('End Time'),
-                      subtitle: Text(
-                        _endTime != null
-                            ? _endTime!.format(context)
-                            : 'Select time',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, size: 16, color: theme.secondaryText),
+                              const SizedBox(width: 8),
+                              Text('Start Time', style: theme.caption.copyWith(color: theme.secondaryText)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _startTime != null ? _startTime!.format(context) : 'Select time',
+                            style: theme.subtitle.copyWith(
+                              color: _startTime != null ? theme.primary : theme.secondaryText
+                            )
+                          )
+                        ]
                       ),
-                      trailing: const Icon(Icons.access_time),
+                    )
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: EliteCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       onTap: () async {
                         final time = await showTimePicker(
                           context: context,
                           initialTime: _endTime ?? TimeOfDay.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.light(
+                                  primary: theme.primary,
+                                  onPrimary: theme.surfaceContainerLowest,
+                                  onSurface: theme.text,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
                         );
                         if (time != null) {
                           setState(() {
@@ -705,40 +800,36 @@ class _AddEditBatchScreenState extends State<AddEditBatchScreen> {
                           });
                         }
                       },
-                    ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, size: 16, color: theme.secondaryText),
+                              const SizedBox(width: 8),
+                              Text('End Time', style: theme.caption.copyWith(color: theme.secondaryText)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _endTime != null ? _endTime!.format(context) : 'Select time',
+                            style: theme.subtitle.copyWith(
+                              color: _endTime != null ? theme.primary : theme.secondaryText
+                            )
+                          )
+                        ]
+                      ),
+                    )
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveBatch,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text('Saving...'),
-                        ],
-                      )
-                    : Text(isEditing ? 'Update Batch' : 'Create Batch'),
+              const SizedBox(height: 40),
+              EliteButton(
+                text: isEditing ? 'Update Batch' : 'Create Batch',
+                onPressed: _isLoading ? () {} : _saveBatch,
+                isLoading: _isLoading,
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),

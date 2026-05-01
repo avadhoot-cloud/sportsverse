@@ -7,7 +7,10 @@
 import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/coach_api.dart';
 
-const Color _kGreen = Color(0xFF1B3D2F);
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_card.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
+import 'package:sportsverse_app/widgets/elite_button.dart';
 
 class CoachAttendanceScreen extends StatefulWidget {
   const CoachAttendanceScreen({super.key});
@@ -65,6 +68,19 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 7)),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        final theme = EliteTheme.of(context);
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: theme.primary,
+              onPrimary: theme.surfaceContainerLowest,
+              onSurface: theme.text,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => _selectedDate = picked);
   }
@@ -91,13 +107,13 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('✅ Attendance saved: $created marked, $skipped duplicates skipped'),
-          backgroundColor: _kGreen,
+          backgroundColor: EliteTheme.of(context).accent,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: $e'), backgroundColor: EliteTheme.of(context).error),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -106,29 +122,25 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7F9),
-      appBar: AppBar(
-        title: const Text('Take Attendance',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      backgroundColor: theme.surface,
+      appBar: const GlassHeader(title: 'Take Attendance'),
       body: FutureBuilder<List<CoachStudent>>(
         future: _studentFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: theme.primary));
           }
           if (snapshot.hasError) {
             return Center(
-              child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+              child: Text('Error: ${snapshot.error}', style: theme.body.copyWith(color: theme.error)),
             );
           }
           final students = snapshot.data ?? [];
           if (students.isEmpty) {
-            return const Center(child: Text('No students found in your batches.'));
+            return Center(child: Text('No students found in your batches.', style: theme.body));
           }
           if (_byBatch.isEmpty) {
             _onStudentsLoaded(students);
@@ -139,52 +151,62 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
           return Column(
             children: [
               // ── Controls bar ─────────────────────────────────────────────
-              Container(
-                color: Colors.white,
+              EliteCard(
+                margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Batch picker
-                    DropdownButtonFormField<int>(
-                      value: _selectedBatchId,
-                      decoration: InputDecoration(
-                        labelText: 'Select Batch',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    Text("Select Batch", style: theme.caption.copyWith(color: theme.secondaryText)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: theme.surfaceContainer),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      items: _batchIds.asMap().entries.map((e) {
-                        return DropdownMenuItem<int>(
-                          value: e.value,
-                          child: Text(_batchNames[e.key]),
-                        );
-                      }).toList(),
-                      onChanged: (id) {
-                        setState(() {
-                          _selectedBatchId = id;
-                          _initPresence();
-                        });
-                      },
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: _selectedBatchId,
+                          icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
+                          items: _batchIds.asMap().entries.map((e) {
+                            return DropdownMenuItem<int>(
+                              value: e.value,
+                              child: Text(_batchNames[e.key], style: theme.body),
+                            );
+                          }).toList(),
+                          onChanged: (id) {
+                            setState(() {
+                              _selectedBatchId = id;
+                              _initPresence();
+                            });
+                          },
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    // Date picker
+                    const SizedBox(height: 16),
+                    Text("Date", style: theme.caption.copyWith(color: theme.secondaryText)),
+                    const SizedBox(height: 8),
                     InkWell(
                       onTap: _pickDate,
+                      borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: theme.surfaceContainer),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 18, color: _kGreen),
-                            const SizedBox(width: 8),
+                            Icon(Icons.calendar_today, size: 18, color: theme.primary),
+                            const SizedBox(width: 12),
                             Text(
                               '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                              style: const TextStyle(fontSize: 14),
+                              style: theme.body,
                             ),
                             const Spacer(),
-                            const Icon(Icons.edit, size: 16, color: Colors.grey),
+                            Icon(Icons.edit, size: 16, color: theme.secondaryText),
                           ],
                         ),
                       ),
@@ -195,12 +217,12 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
 
               // ── Mark all row ─────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${batchStudents.length} students',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: _kGreen)),
+                    Text('${batchStudents.length} Students',
+                        style: theme.subtitle),
                     TextButton(
                       onPressed: () => setState(() {
                         final allPresent = _presence.values.every((v) => v);
@@ -208,7 +230,10 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
                           _presence[key] = !allPresent;
                         }
                       }),
-                      child: const Text('Toggle All'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.accent, // Lime
+                      ),
+                      child: Text('Toggle All', style: theme.body.copyWith(fontWeight: FontWeight.bold, color: theme.primary)),
                     ),
                   ],
                 ),
@@ -222,46 +247,36 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
                   itemBuilder: (context, index) {
                     final s = batchStudents[index];
                     final isPresent = _presence[s.enrollmentId] ?? true;
+                    
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: EliteCard(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isPresent ? _kGreen.withOpacity(0.3) : Colors.red.shade100,
-                          ),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6),
-                          ],
-                        ),
                         child: Row(
                           children: [
                             CircleAvatar(
-                              radius: 20,
+                              radius: 24,
                               backgroundColor: isPresent
-                                  ? _kGreen.withOpacity(0.12)
-                                  : Colors.red.shade50,
+                                  ? theme.accent.withOpacity(0.2) // Lime background
+                                  : theme.errorBackground,
                               child: Text(
                                 s.displayName.isNotEmpty
                                     ? s.displayName[0].toUpperCase()
                                     : '?',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isPresent ? _kGreen : Colors.red.shade700,
+                                style: theme.heading.copyWith(
+                                  color: isPresent ? theme.primary : theme.error,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(s.displayName,
-                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  Text(s.displayName, style: theme.subtitle),
+                                  const SizedBox(height: 2),
                                   Text('@${s.username}',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      style: theme.caption.copyWith(color: theme.secondaryText)),
                                 ],
                               ),
                             ),
@@ -272,17 +287,17 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
                               }),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isPresent ? _kGreen : Colors.red.shade600,
+                                  color: isPresent ? theme.primary : theme.errorBackground,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
                                   isPresent ? 'Present' : 'Absent',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12),
+                                  style: theme.caption.copyWith(
+                                    color: isPresent ? theme.surfaceContainerLowest : theme.error,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -296,21 +311,11 @@ class _CoachAttendanceScreenState extends State<CoachAttendanceScreen> {
 
               // ── Submit button ─────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _kGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _submitting
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Submit Attendance',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                  ),
+                padding: const EdgeInsets.all(24),
+                child: EliteButton(
+                  text: 'Submit Attendance',
+                  onPressed: _submitting ? () {} : _submit,
+                  isLoading: _submitting,
                 ),
               ),
             ],

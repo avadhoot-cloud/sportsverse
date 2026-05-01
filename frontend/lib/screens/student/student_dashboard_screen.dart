@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sportsverse_app/models/student_models.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 import 'package:sportsverse_app/providers/student_provider.dart';
 import 'package:sportsverse_app/screens/student/attendance_screen.dart';
@@ -12,6 +13,8 @@ import 'package:sportsverse_app/screens/student/progress_screen.dart';
 import 'package:sportsverse_app/screens/student/reports_screen.dart';
 import 'package:sportsverse_app/screens/student/student_profile_screen.dart';
 import 'package:sportsverse_app/screens/student/videos_screen.dart';
+import 'package:sportsverse_app/screens/student/submit_match_screen.dart';
+import 'package:sportsverse_app/screens/student/match_history_screen.dart';
 
 // ─── DUPR tier helpers ────────────────────────────────────────────────────────
 
@@ -177,6 +180,41 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
                     const SizedBox(height: 24),
 
+                    // ── Quick Actions ────────────────────────────────────────
+                    const Text(
+                      "Quick Actions",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1B3D2F)),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildActionTile(
+                            context: context,
+                            icon: Icons.sports_tennis,
+                            label: "Record Match",
+                            color: const Color(0xFF2E7D32),
+                            onTap: () => _goWithoutDrawer(const SubmitMatchScreen()),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildActionTile(
+                            context: context,
+                            icon: Icons.history,
+                            label: "Match History",
+                            color: const Color(0xFF1565C0),
+                            onTap: () => _goWithoutDrawer(const MatchHistoryScreen()),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+
                     // ── DUPR Section ─────────────────────────────────────────
                     const Text(
                       "My DUPR Rating",
@@ -186,7 +224,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                           color: Color(0xFF1B3D2F)),
                     ),
                     const SizedBox(height: 12),
-                    _buildDuprCard(),
+                    _buildDuprCard(data),
                   ],
                 ),
               ),
@@ -300,153 +338,351 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
+  // ── Quick Action Tile ──────────────────────────────────────────────────────
+  
+  Widget _buildActionTile({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── DUPR Card ─────────────────────────────────────────────────────────────
 
-  Widget _buildDuprCard() {
-    // Default provisional values – will be replaced by real API in PR2
-    const double singlesRating = 4.000;
-    const double doublesRating = 4.000;
-    const int matchesPlayed = 0;
-    const int reliability = 0;
+  Widget _buildDuprCard(StudentDashboardData? data) {
+    
+    // Safely pull stats from backend response, otherwise fallback to defaults
+    final double singlesRating = data?.duprSinglesRating ?? 4.000;
+    final double doublesRating = data?.duprDoublesRating ?? 4.000;
+    final int matchesPlayedS = data?.duprMatchesSingles ?? 0;
+    final int matchesPlayedD = data?.duprMatchesDoubles ?? 0;
+    final int matchesPlayed = matchesPlayedS + matchesPlayedD;
+    final int reliability = data?.duprReliability.toInt() ?? 50;
+    
     final bool isProvisional = matchesPlayed < 10;
 
     final tierColor = _duprTierColor(singlesRating);
     final tierLabel = _duprTierLabel(singlesRating);
+    
+    final fairness = data?.duprFairness;
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B3D2F), Color(0xFF2D5A46)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1B3D2F).withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("DUPR Rating",
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                  if (isProvisional)
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text("PROVISIONAL",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Ratings row – Singles & Doubles
+              Row(
+                children: [
+                  Expanded(
+                    child: _duprRatingBadge(
+                        "Singles", singlesRating, tierColor, tierLabel),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _duprRatingBadge("Doubles", doublesRating,
+                        _duprTierColor(doublesRating),
+                        _duprTierLabel(doublesRating)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Reliability bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Reliability",
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text("$reliability%",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: reliability / 100,
+                  backgroundColor: Colors.white24,
+                  color: Colors.white,
+                  minHeight: 7,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Matches played + notice
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.sports_tennis, size: 14, color: Colors.white70),
+                      const SizedBox(width: 5),
+                      Text("$matchesPlayed matches played",
+                          style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    ],
+                  ),
+                  Text(
+                    isProvisional ? "${10 - matchesPlayed} more to establish" : "",
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  )
+                ],
+              ),
+              if (isProvisional) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.white70, size: 14),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Play your first 10 matches to establish a reliable DUPR rating.",
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        
+        if (fairness != null) ...[
+          const SizedBox(height: 24),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Match Fairness Index",
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B3D2F)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildFairnessCard(fairness),
+        ]
+      ],
+    );
+  }
+
+  Widget _buildFairnessCard(Map<String, dynamic> fairness) {
+    Color labelColor = Colors.grey;
+    IconData iconData = Icons.help_outline;
+    
+    switch (fairness['color']) {
+      case 'blue':
+        labelColor = const Color(0xFF1565C0);
+        iconData = Icons.verified_user;
+        break;
+      case 'yellow':
+        labelColor = const Color(0xFFF57F17);
+        iconData = Icons.warning_amber_rounded;
+        break;
+      case 'red':
+        labelColor = const Color(0xFFD32F2F);
+        iconData = Icons.gavel;
+        break;
+      case 'gray':
+      default:
+        labelColor = Colors.grey;
+        break;
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1B3D2F), Color(0xFF2D5A46)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1B3D2F).withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          )
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("DUPR Rating",
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500)),
-              if (isProvisional)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text("PROVISIONAL",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: labelColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Ratings row – Singles & Doubles
-          Row(
-            children: [
-              Expanded(
-                child: _duprRatingBadge(
-                    "Singles", singlesRating, tierColor, tierLabel),
+                child: Icon(iconData, color: labelColor, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _duprRatingBadge("Doubles", doublesRating,
-                    _duprTierColor(doublesRating),
-                    _duprTierLabel(doublesRating)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Reliability bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Reliability",
-                  style: TextStyle(color: Colors.white70, fontSize: 12)),
-              Text("$reliability%",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: reliability / 100,
-              backgroundColor: Colors.white24,
-              color: Colors.white,
-              minHeight: 7,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Matches played + notice
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.sports_tennis, size: 14, color: Colors.white70),
-                  const SizedBox(width: 5),
-                  Text("$matchesPlayed matches played",
-                      style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-              Text(
-                "${10 - matchesPlayed} more to establish",
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              )
-            ],
-          ),
-          if (isProvisional) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.white70, size: 14),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Play your first 10 matches to establish a reliable DUPR rating.",
-                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fairness['category'] ?? 'Calculating...',
+                      style: TextStyle(
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold, 
+                        color: fairness['category'] == 'Insufficient Data' ? Colors.black87 : labelColor
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    const Text(
+                      "Based on your last 20 singles matches",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+          
+          if (fairness['category'] != 'Insufficient Data') ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _fairnessStat(
+                    "Avg Rating Diff", 
+                    fairness['avg_rating_diff'] > 0 ? "+${fairness['avg_rating_diff']}" : "${fairness['avg_rating_diff']}"
+                  ),
+                ),
+                Expanded(
+                  child: _fairnessStat(
+                    "Lower Rated %", 
+                    "${fairness['lower_rated_pct']}%"
+                  ),
+                ),
+              ],
             ),
-          ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _fairnessStat(
+                    "Blowout Wins %", 
+                    "${fairness['blowout_pct']}%"
+                  ),
+                ),
+                Expanded(
+                  child: _fairnessStat(
+                    "Close Matches %", 
+                    "${fairness['close_match_pct']}%"
+                  ),
+                ),
+              ],
+            ),
+          ]
         ],
       ),
     );
   }
+
+  Widget _fairnessStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1B3D2F))),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+
 
   Widget _duprRatingBadge(
       String label, double rating, Color color, String tier) {
@@ -528,6 +764,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           _tile(Icons.event, "Events", () => _go(const EventsScreen())),
           _tile(Icons.analytics, "Progress",
               () => _go(const ProgressScreen())),
+          _tile(Icons.sports_tennis, "Record Match", () => _go(const SubmitMatchScreen())),
+          _tile(Icons.history, "Match History", () => _go(const MatchHistoryScreen())),
           _tile(Icons.description, "Reports", () => _go(const ReportsScreen())),
           const Divider(),
           _tile(Icons.notifications_none, "Notifications",

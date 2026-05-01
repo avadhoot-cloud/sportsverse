@@ -231,19 +231,34 @@ class StudentDashboardData {
   final List<StudentEnrollment> currentEnrollments;
   final List<StudentEnrollment> previousEnrollments;
   final List<StudentAttendance> recentAttendance;
+  
+  // DUPR Stats
+  final double duprSinglesRating;
+  final double duprDoublesRating;
+  final int duprMatchesSingles;
+  final int duprMatchesDoubles;
+  final double duprReliability;
+  final Map<String, dynamic>? duprFairness;
 
   StudentDashboardData({
     required this.currentEnrollment,
     required this.sessionsCompleted,
     required this.sessionsRemaining,
     required this.enrollmentCycle,
-    required this.branchName,        // ADD THIS LINE
+    required this.branchName,
     required this.currentEnrollments,
     required this.previousEnrollments,
     required this.recentAttendance,
+    required this.duprSinglesRating,
+    required this.duprDoublesRating,
+    required this.duprMatchesSingles,
+    required this.duprMatchesDoubles,
+    required this.duprReliability,
+    this.duprFairness,
   });
 
   factory StudentDashboardData.fromJson(Map<String, dynamic> json) {
+     final dupr = json['dupr'] as Map<String, dynamic>? ?? {};
     return StudentDashboardData(
       currentEnrollment: json['current_enrollment'] ?? 'No Active Enrollment',
       sessionsCompleted: json['sessions_completed'] ?? 0,
@@ -259,6 +274,12 @@ class StudentDashboardData {
       recentAttendance: (json['recent_attendance'] as List<dynamic>?)
           ?.map((e) => StudentAttendance.fromJson(e))
           .toList() ?? [],
+      duprSinglesRating: (dupr['singles_rating'] ?? 4.000).toDouble(),
+      duprDoublesRating: (dupr['doubles_rating'] ?? 4.000).toDouble(),
+      duprMatchesSingles: dupr['matches_played_singles'] ?? 0,
+      duprMatchesDoubles: dupr['matches_played_doubles'] ?? 0,
+      duprReliability: (dupr['reliability'] ?? 50.0).toDouble(),
+      duprFairness: dupr['fairness'] as Map<String, dynamic>?,
     );
   }
 }

@@ -9,7 +9,6 @@ import 'package:sportsverse_app/api/coach_api.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 import 'package:sportsverse_app/screens/coach/coach_attendance_screen.dart';
 import 'package:sportsverse_app/screens/coach/coach_batches_screen.dart';
-import 'package:sportsverse_app/screens/coach/coach_match_screen.dart';
 import 'package:sportsverse_app/screens/coach/coach_ratings_screen.dart';
 
 // ─── Colour constants (same dark green as student dashboard) ──────────────────
@@ -26,35 +25,22 @@ class CoachDashboardScreen extends StatefulWidget {
 class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
   late Future<CoachDashboardData> _future;
 
-@override
-void initState() {
-  super.initState();
-  _loadData();
-}
-
-void _loadData() {
-  _future = coachApi.getCoachDashboard();
-}
-
-// 📁 lib/screens/coach/coach_dashboard_screen.dart
-
-void _refresh() {
-  if (!mounted) return;   // ✅ CRITICAL FIX
-
-  setState(() {
+  @override
+  void initState() {
+    super.initState();
     _future = coachApi.getCoachDashboard();
-  });
-}
+  }
+
+  void _refresh() => setState(() {
+        _future = coachApi.getCoachDashboard();
+      });
+
   // Navigation helpers
-// 📁 lib/screens/coach/coach_dashboard_screen.dart
+  void _go(Widget screen) {
+    Navigator.pop(context); // close drawer
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
 
-void _go(Widget screen) {
-  Navigator.pop(context);
-
-  if (!mounted) return;   // ✅ ADD THIS
-
-  Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-}
   void _logout() {
     Navigator.pop(context);
     Provider.of<AuthProvider>(context, listen: false).logout();
@@ -104,11 +90,7 @@ void _go(Widget screen) {
               onRetry: _refresh,
             );
           }
-          if (!snapshot.hasData) {
-  return const Center(child: Text("No data"));
-}
-
-final data = snapshot.data!;
+          final data = snapshot.data!;
           return RefreshIndicator(
             onRefresh: () async => _refresh(),
             child: SingleChildScrollView(
@@ -235,7 +217,6 @@ final data = snapshot.data!;
           _tile(Icons.fact_check, 'Attendance', () => _go(const CoachAttendanceScreen())),
           _tile(Icons.sports, 'My Batches', () => _go(const CoachBatchesScreen())),
           _tile(Icons.star, 'DUPR Ratings', () => _go(const CoachRatingsScreen())),
-          _tile(Icons.emoji_events, 'Score a Match', () => _go(const CoachMatchScreen())),
           const Divider(),
           _tile(Icons.logout, 'Logout', _logout, isLogout: true),
         ],

@@ -5,19 +5,20 @@ URL routing for the DUPR internal rating system.
 """
 from django.urls import path
 from ratings.views import (
-    StudentRatingsView,
     MatchSubmitView,
-    MatchListView,
-    ForecastView,
-    PlayerAuditHistoryView,
+    MatchVerificationView,
+    PendingMatchesView,
+    MatchHistoryView,
 )
 
 app_name = "ratings"
 
 urlpatterns = [
-    path('students/', StudentRatingsView.as_view(), name='student-ratings'),
+    # New Match Lifecycle Flow
+    path('matches/history/', MatchHistoryView.as_view(), name='match-history'),
+    path('matches/pending/', PendingMatchesView.as_view(), name='pending-matches'),
     path('matches/', MatchSubmitView.as_view(), name='match-submit'),
-    path('matches/list/', MatchListView.as_view(), name='match-list'),
-    path('forecast/', ForecastView.as_view(), name='forecast'),
-    path('my-history/', PlayerAuditHistoryView.as_view(), name='my-history'),
+    path('matches/<int:pk>/verify/', MatchVerificationView.as_view(), name='match-verify'),
+    
+    # Existing legacy views comment out for now or we would put StudentRatingsView etc back
 ]

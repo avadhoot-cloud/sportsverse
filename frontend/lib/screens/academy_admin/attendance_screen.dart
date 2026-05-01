@@ -5,6 +5,10 @@ import 'package:sportsverse_app/api/branch_api.dart';
 import 'package:sportsverse_app/api/auth_api.dart';
 import 'package:sportsverse_app/api/batch_api.dart';
 
+import 'package:sportsverse_app/theme/elite_theme.dart';
+import 'package:sportsverse_app/widgets/elite_card.dart';
+import 'package:sportsverse_app/widgets/glass_header.dart';
+
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -39,7 +43,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _fetchSports();
   }
   
-  // Fetch branches from API
   Future<void> _fetchBranches() async {
     setState(() {
       _loadingBranches = true;
@@ -67,7 +70,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
   
-  // Fetch sports from API
   Future<void> _fetchSports() async {
     setState(() {
       _loadingSports = true;
@@ -88,7 +90,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
   
-  // Fetch batches based on selected branch and sport
   Future<void> _fetchBatches() async {
     if (_selectedBranch == null || _selectedSport == null) return;
     
@@ -115,7 +116,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
   
-  // Navigate to Take Attendance screen
   void _navigateToTakeAttendance() {
     if (_validateSelections()) {
       Navigator.pushNamed(
@@ -133,7 +133,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
   
-  // Navigate to View Attendance screen
   void _navigateToViewAttendance() {
     if (_validateSelections()) {
       Navigator.pushNamed(
@@ -151,7 +150,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
   
-  // Validate selections before navigation
   bool _validateSelections() {
     if (_selectedBranch == null) {
       _showErrorSnackBar('Please select a branch');
@@ -168,18 +166,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return true;
   }
   
-  // Show error message
   void _showErrorSnackBar(String message) {
-    // Use Future.microtask to avoid showing SnackBar during build
     Future.microtask(() {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: EliteTheme.of(context).error,
+        ),
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = EliteTheme.of(context);
     final bool isLoading = _loadingBranches || _loadingSports || _loadingBatches;
     final bool hasError = _error != null;
     final bool hasSelections = _selectedBranch != null && 
@@ -187,34 +187,49 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               _selectedBatch != null;
     
     return Scaffold(
-      appBar: AppBar(title: const Text('Attendance Management')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: theme.surface,
+      appBar: const GlassHeader(title: 'Attendance Management'),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Error message
             if (hasError)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: theme.errorBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: theme.error),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(_error!, style: theme.body.copyWith(color: theme.error))),
+                  ],
+                ),
               ),
             
-            // Loading indicator
             if (isLoading)
-              const Center(child: CircularProgressIndicator()),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(color: theme.primary),
+                ),
+              ),
             
-            // Selection dropdowns
             if (!isLoading) ...[              
-              // Branch dropdown
               _DropdownInput(
+                theme: theme,
                 label: 'Branch',
                 hint: 'Select Branch',
                 icon: Icons.apartment,
                 items: _branches.map<DropdownMenuItem<String>>((branch) {
                   return DropdownMenuItem<String>(
                     value: branch['id'].toString(),
-                    child: Text(branch['name']),
+                    child: Text(branch['name'], style: theme.body),
                     onTap: () {
                       setState(() {
                         _selectedBranchName = branch['name'];
@@ -234,17 +249,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               
-              // Sport dropdown
               _DropdownInput(
+                theme: theme,
                 label: 'Sport',
                 hint: 'Select Sport',
                 icon: Icons.sports,
                 items: _sports.map<DropdownMenuItem<String>>((sport) {
                   return DropdownMenuItem<String>(
                     value: sport.id.toString(),
-                    child: Text(sport.name),
+                    child: Text(sport.name, style: theme.body),
                     onTap: () {
                       setState(() {
                         _selectedSportName = sport.name;
@@ -264,17 +279,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               
-              // Batch dropdown
               _DropdownInput(
+                theme: theme,
                 label: 'Batch',
                 hint: 'Select Batch',
                 icon: Icons.group,
                 items: _batches.map<DropdownMenuItem<String>>((batch) {
                   return DropdownMenuItem<String>(
                     value: batch.id.toString(),
-                    child: Text(batch.name),
+                    child: Text(batch.name, style: theme.body),
                     onTap: () {
                       setState(() {
                         _selectedBatchName = batch.name;
@@ -289,36 +304,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   });
                 },
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               
-              // Action cards
               if (hasSelections) ...[                
-                Expanded(
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.0,
-                    children: [
-                      // Take Attendance Card
-                      _ActionCard(
-                        title: 'Take Attendance',
-                        subtitle: 'Mark student attendance',
-                        icon: Icons.fact_check,
-                        color: const Color(0xFF06beb6),
-                        onTap: _navigateToTakeAttendance,
-                      ),
-                      
-                      // View Attendance Card
-                      _ActionCard(
-                        title: 'View Attendance',
-                        subtitle: 'Check attendance records',
-                        icon: Icons.insights,
-                        color: const Color(0xFF43e97b),
-                        onTap: _navigateToViewAttendance,
-                      ),
-                    ],
-                  ),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.9,
+                  children: [
+                    _ActionCard(
+                      theme: theme,
+                      title: 'Take Attendance',
+                      subtitle: 'Mark student attendance',
+                      icon: Icons.fact_check,
+                      color: theme.primary,
+                      onTap: _navigateToTakeAttendance,
+                    ),
+                    
+                    _ActionCard(
+                      theme: theme,
+                      title: 'View Attendance',
+                      subtitle: 'Check attendance records',
+                      icon: Icons.insights,
+                      color: theme.accent, // Lime
+                      onTap: _navigateToViewAttendance,
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -329,8 +343,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
-// Dropdown input widget
 class _DropdownInput extends StatelessWidget {
+  final EliteTheme theme;
   final String label;
   final String hint;
   final IconData icon;
@@ -339,6 +353,7 @@ class _DropdownInput extends StatelessWidget {
   final Function(String?) onChanged;
 
   const _DropdownInput({
+    required this.theme,
     required this.label,
     required this.hint,
     required this.icon,
@@ -354,27 +369,44 @@ class _DropdownInput extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: theme.subtitle,
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           decoration: InputDecoration(
-            prefixIcon: Icon(icon),
+            prefixIcon: Icon(icon, color: theme.primary),
             hintText: hint,
-            border: const OutlineInputBorder(),
+            hintStyle: theme.body.copyWith(color: theme.secondaryText),
+            filled: true,
+            fillColor: theme.surfaceContainerLowest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.surfaceContainer),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.surfaceContainer),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.primary),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
+          icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
           value: value,
           items: items,
           onChanged: onChanged,
           isExpanded: true,
+          dropdownColor: theme.surfaceContainerLowest,
         ),
       ],
     );
   }
 }
 
-// Action card widget
 class _ActionCard extends StatelessWidget {
+  final EliteTheme theme;
   final String title;
   final String subtitle;
   final IconData icon;
@@ -382,6 +414,7 @@ class _ActionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ActionCard({
+    required this.theme,
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -391,36 +424,36 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Set to min to prevent overflow
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 40, color: color), // Reduced icon size
-              const SizedBox(height: 12), // Reduced spacing
-              Text(
-                title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Reduced font size
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4), // Reduced spacing
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]), // Reduced font size
-                textAlign: TextAlign.center,
-                maxLines: 2, // Limit to 2 lines
-                overflow: TextOverflow.ellipsis, // Handle overflow with ellipsis
-              ),
-            ],
+    return EliteCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16)
+            ),
+            child: Icon(icon, size: 32, color: color)
           ),
-        ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: theme.subtitle,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: theme.caption.copyWith(color: theme.secondaryText),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

@@ -54,6 +54,13 @@ class EliteTheme extends ThemeExtension<EliteTheme> {
     required this.caption,
   });
 
+  // Missing properties added for backward compatibility with older screens
+  Color get error => errorText;
+  Color get secondaryText => disabledText; // Or another appropriate color
+  Color get text => primary;
+  TextStyle get heading => headline;
+  TextStyle get subtitle => subhead;
+
   /// The standard, locked-down Elite Curator Theme
   factory EliteTheme.standard() {
     return EliteTheme(

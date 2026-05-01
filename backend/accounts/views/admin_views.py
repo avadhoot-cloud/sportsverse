@@ -221,6 +221,40 @@ class StudentDashboardView(APIView):
             return Response({'error': 'Student profile required'}, status=status.HTTP_403_FORBIDDEN)
 
         student = request.user.student_profile
+        
+        # ─── Fetch Real DUPR Ratings ───
+        from ratings.models import PlayerRatingProfile
+        dupr_data = {
+            "singles_rating": 4.000,
+            "doubles_rating": 4.000,
+            "matches_played_singles": 0,
+            "matches_played_doubles": 0,
+            "reliability": 50.00
+        }
+        
+        # Grab the first available sport profile for this student (we can expand this later to support multi-sport tabs)
+        from ratings.fairness import calculate_fairness_index
+        rating_profile = PlayerRatingProfile.objects.filter(student=student).first()
+        if rating_profile:
+            fairness = calculate_fairness_index(rating_profile)
+            dupr_data = {
+                "singles_rating": float(rating_profile.dupr_rating_singles),
+                "doubles_rating": float(rating_profile.dupr_rating_doubles),
+                "matches_played_singles": rating_profile.matches_played_singles,
+                "matches_played_doubles": rating_profile.matches_played_doubles,
+                "reliability": float(rating_profile.reliability),
+                "fairness": fairness
+            }
+        else:
+            dupr_data["fairness"] = {
+                "category": "Insufficient Data",
+                "color": "gray",
+                "avg_rating_diff": 0.0,
+                "lower_rated_pct": 0.0,
+                "blowout_pct": 0.0,
+                "close_match_pct": 0.0
+            }
+
         enrollments = (
             Enrollment.objects
             .filter(student=student, is_active=True)
@@ -267,7 +301,7 @@ class StudentDashboardView(APIView):
                 }
             )
 
-        return Response({'enrollments': enrollment_data})
+        return Response({'enrollments': enrollment_data, 'dupr': dupr_data})
 
 
 class StudentAttendanceView(APIView):

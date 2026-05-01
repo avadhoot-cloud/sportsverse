@@ -54,47 +54,76 @@ class _FinancialDashboardChartState extends State<FinancialDashboardChart> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
         return SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Align to top
-                  children: [
-                    Expanded(
-                      child: _infoCard(
-                        "Payment Mode",
-                        "Online: ${online.toInt()}% | Cash: ${cash.toInt()}%",
+                if (isMobile) ...[
+                  _infoCard(
+                    "Payment Mode",
+                    "Online: ${online.toInt()}% | Cash: ${cash.toInt()}%",
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _infoCard(
+                          "Token Amt",
+                          "₹ $tokenAmount",
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _infoCard(
-                        "Token Amt",
-                        "₹ $tokenAmount",
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _branchDropdown(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _branchDropdown(),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _infoCard(
+                          "Payment Mode",
+                          "Online: ${online.toInt()}% | Cash: ${cash.toInt()}%",
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _infoCard(
+                          "Token Amt",
+                          "₹ $tokenAmount",
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _branchDropdown(),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _infoCard(
                   "Branch Amount",
                   "₹ $branchTotal",
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(child: _buildPieChart(online, cash)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildDonutChart(branchTotal)),
-                  ],
-                ),
+                if (isMobile) ...[
+                  _buildPieChart(online, cash),
+                  const SizedBox(height: 16),
+                  _buildDonutChart(branchTotal),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(child: _buildPieChart(online, cash)),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildDonutChart(branchTotal)),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
