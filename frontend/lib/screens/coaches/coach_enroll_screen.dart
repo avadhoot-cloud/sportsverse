@@ -3,7 +3,8 @@ import 'package:sportsverse_app/api/api_client.dart';
 import 'dart:convert';
 
 class CoachEnrollScreen extends StatefulWidget {
-  const CoachEnrollScreen({super.key});
+  final VoidCallback? onSuccess;
+  const CoachEnrollScreen({super.key, this.onSuccess});
 
   @override
   State<CoachEnrollScreen> createState() => _CoachEnrollScreenState();
@@ -41,7 +42,11 @@ class _CoachEnrollScreenState extends State<CoachEnrollScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Coach Enrolled Successfully!")),
           );
-          Navigator.pop(context, true); // Return true to refresh list
+          if (widget.onSuccess != null) {
+            widget.onSuccess!();
+          } else {
+            Navigator.pop(context, true); // Return true to refresh list
+          }
         }
       } else {
         final error = jsonDecode(response.body);

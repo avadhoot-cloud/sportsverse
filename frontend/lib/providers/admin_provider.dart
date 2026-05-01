@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'auth_provider.dart';
 import 'package:provider/provider.dart';
+import '/api/api_client.dart';
 // ✅ USE YOUR EXISTING API CLIENT (VERY IMPORTANT)
 
 // ✅ Your model file
@@ -17,48 +18,40 @@ class AdminProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // 🔥 FETCH STUDENTS WITH FILTERS + AUTH TOKEN
-Future<void> fetchAllStudents(BuildContext context,
-    {String? branch, String? batch}) async {
-  _isLoading = true;
-  notifyListeners();
+  Future<void> fetchAllStudents(BuildContext context,
+      {String? branch, String? batch}) async {
+    _isLoading = true;
+    notifyListeners();
 
-  try {
-    String url = 'http://127.0.0.1:8000/api/accounts/students/';
+    try {
+      String path = '/api/accounts/students/';
+      List<String> queryParams = [];
 
-    if (branch != null || batch != null) {
-      url += '?';
-      if (branch != null) url += 'branch=$branch&';
-      if (batch != null) url += 'batch=$batch';
+      if (branch != null) queryParams.add('branch=$branch');
+      if (batch != null) queryParams.add('batch=$batch');
+
+      if (queryParams.isNotEmpty) {
+        path += '?${queryParams.join('&')}';
+      }
+
+      // ✅ USE GLOBAL API CLIENT
+      final response = await apiClient.get(path, includeAuth: true);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+
+        _allEnrollments =
+            data.map((e) => StudentEnrollment.fromJson(e)).toList();
+
+        _filteredEnrollments = _allEnrollments;
+      } else {
+        debugPrint("API ERROR: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Error fetching students: $e");
     }
 
-  // ✅ GET REAL TOKEN FROM AUTH PROVIDER
-final authProvider =
-    Provider.of<AuthProvider>(context, listen: false);
-final token = authProvider.accessToken;
-
-// ✅ API CALL WITH REAL TOKEN
-final response = await http.get(
-  Uri.parse(url),
-  headers: {
-    "Authorization": "Bearer $token",
-    "Content-Type": "application/json",
-  },
-);
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-
-      _allEnrollments =
-          data.map((e) => StudentEnrollment.fromJson(e)).toList();
-
-      _filteredEnrollments = _allEnrollments;
-    } else {
-      debugPrint("API ERROR: ${response.statusCode}");
-    }
-  } catch (e) {
-    debugPrint("Error fetching students: $e");
+    _isLoading = false;
+    notifyListeners();
   }
-
-  _isLoading = false;
-  notifyListeners();
-}
 }

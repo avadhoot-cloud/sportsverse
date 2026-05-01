@@ -93,11 +93,33 @@ Map<String, String> _headers({
     }
   }
 
+  // ── URL construction helper ─────────────────────────────────────────────
+  
+  Uri _buildUri(String path) {
+    // 1. Remove leading slash from path if baseUrl ends with one
+    String cleanPath = path;
+    if (baseUrl.endsWith('/') && cleanPath.startsWith('/')) {
+      cleanPath = cleanPath.substring(1);
+    }
+    
+    // 2. Handle trailing slash before query parameters
+    if (cleanPath.contains('?')) {
+      final parts = cleanPath.split('?');
+      if (!parts[0].endsWith('/')) {
+        cleanPath = '${parts[0]}/?${parts[1]}';
+      }
+    } else if (!cleanPath.endsWith('/')) {
+      cleanPath = '$cleanPath/';
+    }
+    
+    return Uri.parse('$baseUrl$cleanPath');
+  }
+
   // ── HTTP verbs ────────────────────────────────────────────────────────────
 
   Future<http.Response> get(String path, {bool includeAuth = true}) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     return _withTimeout(http.get(url, headers: _headers(withAuth: includeAuth)));
   }
 
@@ -107,7 +129,7 @@ Map<String, String> _headers({
     bool includeAuth = true,
   }) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     return _withTimeout(http.post(
       url,
       headers: _headers(withAuth: includeAuth),
@@ -121,7 +143,7 @@ Map<String, String> _headers({
     bool includeAuth = true,
   }) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     return _withTimeout(http.put(
       url,
       headers: _headers(withAuth: includeAuth),
@@ -135,7 +157,7 @@ Map<String, String> _headers({
     bool includeAuth = true,
   }) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     return _withTimeout(http.patch(
       url,
       headers: _headers(withAuth: includeAuth),
@@ -145,7 +167,7 @@ Map<String, String> _headers({
 
   Future<http.Response> delete(String path, {bool includeAuth = true}) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     return _withTimeout(http.delete(url, headers: _headers(withAuth: includeAuth)));
   }
 
@@ -158,7 +180,7 @@ Map<String, String> _headers({
     bool includeAuth = true,
   }) async {
     await _ensureInitialized();
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     final request = http.MultipartRequest('POST', url)
       ..headers.addAll(_headers(withAuth: includeAuth, multipart: true))
       ..fields.addAll(fields);
@@ -169,7 +191,7 @@ Map<String, String> _headers({
   Future<http.Response> uploadFile(String path, String filePath) async {
     await _ensureInitialized();
     debugPrint('📤 uploadFile: $filePath → $path');
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     final request = http.MultipartRequest('POST', url)
       ..headers.addAll(_headers(withAuth: true, multipart: true))
       ..files.add(await http.MultipartFile.fromPath('profile_photo', filePath));
@@ -185,7 +207,7 @@ Map<String, String> _headers({
   ) async {
     await _ensureInitialized();
     debugPrint('📤 uploadFileWithData: $filePath → $path');
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     final request = http.MultipartRequest('POST', url)
       ..headers.addAll(_headers(withAuth: true, multipart: true))
       ..files.add(await http.MultipartFile.fromPath(fileFieldName, filePath));
@@ -201,7 +223,7 @@ Map<String, String> _headers({
   ) async {
     await _ensureInitialized();
     debugPrint('📤 uploadFileWithFieldName: $filePath → $path');
-    final url = Uri.parse('$baseUrl${path.endsWith('/') ? path : '$path/'}');
+    final url = _buildUri(path);
     final request = http.MultipartRequest('POST', url)
       ..headers.addAll(_headers(withAuth: true, multipart: true))
       ..files.add(await http.MultipartFile.fromPath(fieldName, filePath));

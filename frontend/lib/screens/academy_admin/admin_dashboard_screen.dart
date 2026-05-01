@@ -537,8 +537,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
             onExpansionChanged: (val) => setState(() => _isCoachesExpanded = val),
             children: [
               _sidebarSubItem(theme, context, 'Enrolled Coaches', Icons.view_list, () => setState(() => _currentContent = const CoachListScreen())),
-              _sidebarSubItem(theme, context, 'Enroll Coach', Icons.person_add, () => setState(() => _currentContent = const CoachEnrollScreen())),
-              _sidebarSubItem(theme, context, 'Assign Coach', Icons.assignment_ind, () => setState(() => _currentContent = const AssignCoachScreen())),
+              _sidebarSubItem(theme, context, 'Enroll Coach', Icons.person_add, () => setState(() => _currentContent = CoachEnrollScreen(onSuccess: () => setState(() => _currentContent = null)))),
+              _sidebarSubItem(theme, context, 'Assign Coach', Icons.assignment_ind, () => setState(() => _currentContent = AssignCoachScreen(onSuccess: () => setState(() => _currentContent = null)))),
             ],
           ),
 
@@ -552,7 +552,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
               _sidebarSubItem(theme, context, 'View Students', Icons.visibility_outlined, () {
                 setState(() => _currentContent = ChangeNotifierProvider(create: (context) => AdminProvider(), child: const ViewStudentsScreen()));
               }),
-              _sidebarSubItem(theme, context, 'Enroll Student', Icons.add_circle_outline, () => setState(() => _currentContent = const AddStudentEnrollmentScreen())),
+              _sidebarSubItem(theme, context, 'Enroll Student', Icons.add_circle_outline, () => setState(() => _currentContent = AddStudentEnrollmentScreen(onSuccess: () => setState(() => _currentContent = null)))),
             ],
           ),
 
@@ -646,8 +646,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
 
   Widget _buildManagementGrid(BuildContext context, double maxWidth, EliteTheme theme) {
     final List<Map<String, dynamic>> actions = [
-      {'title': 'Add Student', 'icon': Icons.person_add_alt, 'color': theme.primary, 'onTap': () => setState(() => _currentContent = const AddStudentEnrollmentScreen())},
-      {'title': 'Enroll Coach', 'icon': Icons.sports, 'color': theme.accent, 'onTap': () => setState(() => _currentContent = const CoachEnrollScreen())},
+      {'title': 'Add Student', 'icon': Icons.person_add_alt, 'color': theme.primary, 'onTap': () => setState(() => _currentContent = AddStudentEnrollmentScreen(onSuccess: () => setState(() => _currentContent = null)))},
+      {'title': 'Enroll Coach', 'icon': Icons.sports, 'color': theme.accent, 'onTap': () => setState(() => _currentContent = CoachEnrollScreen(onSuccess: () => setState(() => _currentContent = null)))},
       {'title': 'Manage Branches', 'icon': Icons.location_city, 'color': theme.primary, 'onTap': () => setState(() => _currentContent = const BranchManagementScreen())},
       {'title': 'Manage Batches', 'icon': Icons.groups, 'color': theme.accent, 'onTap': () => setState(() => _currentContent = const BatchManagementScreen())},
     ];

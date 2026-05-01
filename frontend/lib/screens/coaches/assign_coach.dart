@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 
 class AssignCoachScreen extends StatefulWidget {
-  const AssignCoachScreen({super.key});
+  final VoidCallback? onSuccess;
+  const AssignCoachScreen({super.key, this.onSuccess});
 
   @override
   _AssignCoachPageState createState() => _AssignCoachPageState();
@@ -114,7 +115,11 @@ class _AssignCoachPageState extends State<AssignCoachScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(backgroundColor: Colors.green, content: Text("Coach Assigned Successfully!")),
       );
-      Navigator.pop(context);
+      if (widget.onSuccess != null) {
+        widget.onSuccess!();
+      } else {
+        Navigator.pop(context);
+      }
     }
   }
 

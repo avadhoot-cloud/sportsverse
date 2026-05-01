@@ -247,14 +247,14 @@ Future<void> _showPaymentDialog() async {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.teal.shade100)),
       child: Column(
         children: [
-          _buildDropdown("Branch", Icons.business, _selectedBranchId, _branches.map((b) => DropdownMenuItem(value: b.id.toString(), child: Text(b.name))).toList(), (val) {
+          _buildDropdown("Branch", Icons.business, _selectedBranchId, _branches.map((b) => DropdownMenuItem(value: b.id.toString(), child: Text(b.name, overflow: TextOverflow.ellipsis))).toList(), (val) {
             setState(() { _selectedBranchId = val; _selectedBatchId = null; _studentFinancials = []; });
             if (val != null) _loadBatches(val);
           }),
           const SizedBox(height: 15),
-          _buildDropdown("Sport", Icons.sports, _selectedSportId, _sports.map((s) => DropdownMenuItem(value: s['id'].toString(), child: Text(s['name']))).toList(), (val) => setState(() => _selectedSportId = val)),
+          _buildDropdown("Sport", Icons.sports, _selectedSportId, _sports.map((s) => DropdownMenuItem(value: s['id'].toString(), child: Text(s['name'], overflow: TextOverflow.ellipsis))).toList(), (val) => setState(() => _selectedSportId = val)),
           const SizedBox(height: 15),
-          _buildDropdown("Batch", Icons.groups, _selectedBatchId, _batches.map((b) => DropdownMenuItem(value: b.id.toString(), child: Text(b.name))).toList(), (val) => setState(() => _selectedBatchId = val)),
+          _buildDropdown("Batch", Icons.groups, _selectedBatchId, _batches.map((b) => DropdownMenuItem(value: b.id.toString(), child: Text(b.name, overflow: TextOverflow.ellipsis))).toList(), (val) => setState(() => _selectedBatchId = val)),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -279,7 +279,7 @@ Future<void> _showPaymentDialog() async {
         _selectedStudentId, 
         _studentFinancials.map((s) => DropdownMenuItem(
           value: s['student_id'].toString(),
-          child: Text("${s['first_name']} ${s['last_name']}")
+          child: Text("${s['first_name']} ${s['last_name']}", overflow: TextOverflow.ellipsis)
         )).toList(), 
         (val) {
           setState(() {
@@ -364,6 +364,7 @@ Future<void> _showPaymentDialog() async {
   Widget _buildDropdown(String hint, IconData icon, String? value, List<DropdownMenuItem<String>> items, Function(String?) onChanged) {
     return DropdownButtonFormField<String>(
       value: value,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF00796B)),

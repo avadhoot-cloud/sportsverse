@@ -13,7 +13,7 @@ from rest_framework.views import APIView # <--- THIS WAS MISSING
 
 class BatchAttendanceSummaryView(APIView):
     def get(self, request):
-        batch_id = request.query_params.get('batch')
+        batch_id = request.query_params.get('batch', '').rstrip('/')
         if not batch_id:
             return Response({"error": "Batch ID required"}, status=400)
 
@@ -444,7 +444,7 @@ class BatchStudentsForAttendanceView(APIView):
     permission_classes = [IsAuthenticated]
 
 def get(self, request):
-    batch_id = request.query_params.get('batch')
+    batch_id = request.query_params.get('batch', '').rstrip('/')
     date = request.query_params.get('date')  # YYYY-MM-DD
 
     if not batch_id or not date:
@@ -652,8 +652,8 @@ class AttendanceStudentsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        batch_id = request.query_params.get('batch')
-        date = request.query_params.get('date')
+        batch_id = request.query_params.get('batch', '').rstrip('/')
+        date = request.query_params.get('date', '').rstrip('/')
 
         if not batch_id or not date:
             return Response({"error": "batch and date required"}, status=400)

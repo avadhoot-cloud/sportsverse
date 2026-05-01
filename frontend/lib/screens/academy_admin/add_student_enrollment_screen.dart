@@ -5,7 +5,8 @@ import 'package:sportsverse_app/api/batch_api.dart';
 import 'package:sportsverse_app/models/batch.dart';
 
 class AddStudentEnrollmentScreen extends StatefulWidget {
-  const AddStudentEnrollmentScreen({super.key});
+  final VoidCallback? onSuccess;
+  const AddStudentEnrollmentScreen({super.key, this.onSuccess});
 
   @override
   State<AddStudentEnrollmentScreen> createState() =>
@@ -195,7 +196,11 @@ class _AddStudentEnrollmentScreenState
         ),
       );
 
-      Navigator.pop(context, true); // Return true to indicate success
+      if (widget.onSuccess != null) {
+        widget.onSuccess!();
+      } else {
+        Navigator.pop(context, true); // Return true to indicate success
+      }
     } catch (e) {
       setState(() {
         isLoading = false;

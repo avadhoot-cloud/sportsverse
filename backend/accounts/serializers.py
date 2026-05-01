@@ -62,16 +62,30 @@ class StudentListSerializer(serializers.ModelSerializer):
         return obj.last_name
 
     def get_batch_name(self, obj):
-        return "N/A"
+        active_enrollment = obj.enrollments.filter(is_active=True).select_related('batch').first()
+        return active_enrollment.batch.name if active_enrollment else "N/A"
 
     def get_branch_name(self, obj):
-        return obj.organization.academy_name if obj.organization else "N/A"
+        active_enrollment = obj.enrollments.filter(is_active=True).select_related('batch__branch').first()
+        return active_enrollment.batch.branch.name if active_enrollment else "N/A"
 
     def get_is_active(self, obj):
-        return True
+        return obj.enrollments.filter(is_active=True).exists()
 
     def get_progress_display(self, obj):
-        return "0%"
+        enrollment = obj.enrollments.filter(is_active=True).first()
+        if not enrollment:
+            return "No Active Enrollment"
+        
+        if enrollment.enrollment_type == 'DURATION_BASED':
+            return "Duration Based"
+            
+        total = enrollment.total_sessions or 0
+        attended = enrollment.sessions_attended or 0
+        if total == 0:
+            return "0%"
+        pct = int((attended / total) * 100)
+        return f"{pct}% ({attended}/{total})"
 
 class RegisterAcademySerializer(serializers.Serializer):
     """

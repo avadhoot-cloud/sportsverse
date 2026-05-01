@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/providers/admin_provider.dart';
 import '/providers/auth_provider.dart';
+import 'package:sportsverse_app/api/branch_api.dart';
+import 'package:sportsverse_app/api/batch_api.dart';
+import 'package:sportsverse_app/models/branch.dart';
+import 'package:sportsverse_app/models/batch.dart';
 class ViewStudentsScreen extends StatefulWidget {
   
   const ViewStudentsScreen({super.key});
@@ -13,9 +17,13 @@ class ViewStudentsScreen extends StatefulWidget {
 }
 
 class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
-  String selectedBranch = "All";
-  String selectedBatch = "All";
-bool _hasLoaded = false;
+  String? selectedBranchId;
+  String? selectedBatchId;
+  
+  List<Branch> branches = [];
+  List<Batch> batches = [];
+  bool isLoadingFilters = true;
+  bool _hasLoaded = false;
 
 @override
 void initState() {
@@ -32,19 +40,35 @@ void initState() {
 
     // ✅ ONLY CALL API AFTER AUTH READY
     if (authProvider.currentUser != null) {
+      _loadFilters();
       await Provider.of<AdminProvider>(context, listen: false)
           .fetchAllStudents(context);
     }
   });
 }
 
+  Future<void> _loadFilters() async {
+    try {
+      final fetchedBranches = await branchApi.getBranches();
+      final fetchedBatches = await batchApi.getBatches();
+      setState(() {
+        branches = fetchedBranches;
+        batches = fetchedBatches;
+        isLoadingFilters = false;
+      });
+    } catch (e) {
+      debugPrint("Error loading filters: $e");
+      setState(() => isLoadingFilters = false);
+    }
+  }
+
   // ✅ APPLY FILTERS (CALL BACKEND)
   void applyFilters() {
     Provider.of<AdminProvider>(context, listen: false)
         .fetchAllStudents(
       context,
-      branch: selectedBranch == "All" ? null : selectedBranch,
-      batch: selectedBatch == "All" ? null : selectedBatch,
+      branch: selectedBranchId,
+      batch: selectedBatchId,
     );
   }
 
@@ -89,24 +113,25 @@ void initState() {
         children: [
           // 🔹 BRANCH DROPDOWN
           Expanded(
-            child: DropdownButtonFormField<String>(
-              value: selectedBranch,
+            child: DropdownButtonFormField<String?>(
+              value: selectedBranchId,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: "Branch",
                 border: InputBorder.none,
               ),
-              items: ["All", "1", "2", "3"] // ⚠️ replace later with API
-                  .map((value) => DropdownMenuItem(
-                        value: value,
-                        child: Text(
-                          value == "All"
-                              ? "All Branches"
-                              : "Branch $value",
-                        ),
-                      ))
-                  .toList(),
+              items: [
+                const DropdownMenuItem(value: null, child: Text("All Branches")),
+                ...branches.map((b) => DropdownMenuItem(
+                      value: b.id.toString(),
+                      child: Text(
+                        b.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ))
+              ],
               onChanged: (val) {
-                setState(() => selectedBranch = val!);
+                setState(() => selectedBranchId = val);
                 applyFilters(); // 🔥 CALL API
               },
             ),
@@ -116,24 +141,25 @@ void initState() {
 
           // 🔹 BATCH DROPDOWN
           Expanded(
-            child: DropdownButtonFormField<String>(
-              value: selectedBatch,
+            child: DropdownButtonFormField<String?>(
+              value: selectedBatchId,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: "Batch",
                 border: InputBorder.none,
               ),
-              items: ["All", "1", "2", "3"] // ⚠️ replace later with API
-                  .map((value) => DropdownMenuItem(
-                        value: value,
-                        child: Text(
-                          value == "All"
-                              ? "All Batches"
-                              : "Batch $value",
-                        ),
-                      ))
-                  .toList(),
+              items: [
+                const DropdownMenuItem(value: null, child: Text("All Batches")),
+                ...batches.map((b) => DropdownMenuItem(
+                      value: b.id.toString(),
+                      child: Text(
+                        b.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ))
+              ],
               onChanged: (val) {
-                setState(() => selectedBatch = val!);
+                setState(() => selectedBatchId = val);
                 applyFilters(); // 🔥 CALL API
               },
             ),

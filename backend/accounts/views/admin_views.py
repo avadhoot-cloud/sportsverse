@@ -50,9 +50,9 @@ class BatchFinancialsSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        branch_id = request.query_params.get('branch')
-        sport_id = request.query_params.get('sport')
-        batch_id = request.query_params.get('batch')
+        branch_id = request.query_params.get('branch', '').rstrip('/')
+        sport_id = request.query_params.get('sport', '').rstrip('/')
+        batch_id = request.query_params.get('batch', '').rstrip('/')
 
         if not (branch_id and sport_id and batch_id):
             return Response(
@@ -132,7 +132,7 @@ class CollectStudentFeeView(APIView):
         student_id = request.data.get('student_id')
         enrollment_id = request.data.get('enrollment_id')
         amount = request.data.get('amount')
-        payment_method = request.data.get('payment_method', 'Cash')
+        payment_method = request.data.get('payment_method', 'cash').lower()
 
         transaction = (
             FeeTransaction.objects
@@ -186,9 +186,24 @@ class StudentListView(APIView):
     def get(self, request):
         if not hasattr(request.user, 'academy_admin_profile'):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
         org = request.user.academy_admin_profile.organization
-        students = StudentProfile.objects.filter(organization=org)
-        serializer = StudentListSerializer(students, many=True)
+        branch_id = request.query_params.get('branch')
+        batch_id = request.query_params.get('batch')
+        
+        queryset = StudentProfile.objects.filter(organization=org).prefetch_related(
+            'enrollments', 'enrollments__batch', 'enrollments__batch__branch'
+        )
+        
+        if branch_id:
+            queryset = queryset.filter(enrollments__batch__branch_id=branch_id, enrollments__is_active=True)
+        if batch_id:
+            queryset = queryset.filter(enrollments__batch_id=batch_id, enrollments__is_active=True)
+            
+        # Ensure we don't get duplicate students if they have multiple active enrollments (though unlikely in this UI flow)
+        queryset = queryset.distinct()
+        
+        serializer = StudentListSerializer(queryset, many=True)
         return Response(serializer.data)
 
 
