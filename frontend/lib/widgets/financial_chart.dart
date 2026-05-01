@@ -34,17 +34,10 @@ class _FinancialDashboardChartState extends State<FinancialDashboardChart> {
 
   @override
   Widget build(BuildContext context) {
-    double online =
+    final online =
         (widget.analytics['online_percentage'] as num?)?.toDouble() ?? 0.0;
-    double cash =
+    final cash =
         (widget.analytics['cash_percentage'] as num?)?.toDouble() ?? 0.0;
-
-    if (selectedBranch != null && filteredData.isNotEmpty) {
-      final selectedData = filteredData.first;
-      online = (selectedData['online_percentage'] as num?)?.toDouble() ?? 0.0;
-      cash = (selectedData['cash_percentage'] as num?)?.toDouble() ?? 0.0;
-    }
-
     final tokenAmount = widget.analytics['total_token_amount'] ?? 0;
 
     final branchTotal = selectedBranch == null

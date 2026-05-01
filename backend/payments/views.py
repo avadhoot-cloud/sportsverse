@@ -9,7 +9,7 @@ from django.db.models import Sum
 from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from rest_framework.decorators import api_view, permission_classes
 from django.utils import timezone
-from django.db.models import F, Sum, Count, Q
+from django.db.models import F, Sum, Count  # Ensure 'F' is included here
 from organizations.models import Batch, Branch, Sport, Enrollment
 from accounts.models import StudentProfile
 from .models import FeeTransaction, CoachSalaryTransaction, GeneralExpense
@@ -138,7 +138,7 @@ class CollectStudentFeeView(APIView):
         student_id = request.data.get('student_id')
         enrollment_id = request.data.get('enrollment_id')
         amount = request.data.get('amount')
-        payment_method = request.data.get('payment_method', 'cash').lower()
+        payment_method = request.data.get('payment_method', 'Cash')
         
         transaction = FeeTransaction.objects.filter(
             student_id=student_id, 
@@ -262,48 +262,38 @@ def get_dashboard_analytics(request):
         })
 
     # =========================
-    # 🧾 PAYMENT METHODS (FIXED - Using Sum for Revenue Share)
+    # 🧾 PAYMENT METHODS (FIXED)
     # =========================
-    total_amount = float(total_income)
-    
-    online_amount = income_qs.filter(
-        Q(payment_method__iexact='online') | Q(payment_method__iexact='upi') | 
-        Q(payment_method__iexact='card') | Q(payment_method__iexact='netbanking')
-    ).aggregate(total=Sum('amount'))['total'] or 0
-    
-    cash_amount = income_qs.filter(payment_method__iexact='cash').aggregate(total=Sum('amount'))['total'] or 0
+    payment_methods = income_qs.values('payment_method').annotate(total=Sum('amount'))
 
-    online_percentage = (float(online_amount) / total_amount * 100) if total_amount > 0 else 0
-    cash_percentage = (float(cash_amount) / total_amount * 100) if total_amount > 0 else 0
+    total_count = income_qs.count()
+    online_count = income_qs.filter(payment_method__iexact='online').count()
+    cash_count = income_qs.filter(payment_method__iexact='cash').count()
+
+    online_percentage = (online_count / total_count * 100) if total_count > 0 else 0
+    cash_percentage = (cash_count / total_count * 100) if total_count > 0 else 0
 
     # =========================
     # 🏢 BRANCH
     # =========================
     all_branches = Branch.objects.filter(organization=organization)
 
+    branch_qs = income_qs.values(
+        'enrollment__batch__branch'
+    ).annotate(
+        total=Sum('amount')
+    )
+
+    revenue_map = {
+        item['enrollment__batch__branch']: float(item['total'])
+        for item in branch_qs
+    }
+
     branch_revenue = []
     for branch in all_branches:
-        # Filter transactions for THIS branch
-        branch_txns = income_qs.filter(enrollment__batch__branch=branch)
-        branch_total = float(branch_txns.aggregate(total=Sum('amount'))['total'] or 0)
-        
-        # Calculate revenue share for THIS branch
-        b_online_amt = branch_txns.filter(
-            Q(payment_method__iexact='online') | Q(payment_method__iexact='upi') | 
-            Q(payment_method__iexact='card') | Q(payment_method__iexact='netbanking')
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        b_cash_amt = branch_txns.filter(payment_method__iexact='cash').aggregate(total=Sum('amount'))['total'] or 0
-        
-        branch_online_pct = (float(b_online_amt) / branch_total * 100) if branch_total > 0 else 0
-        branch_cash_pct = (float(b_cash_amt) / branch_total * 100) if branch_total > 0 else 0
-
         branch_revenue.append({
             "branch": branch.name,
-            "id": branch.id,
-            "total": branch_total,
-            "online_percentage": float(branch_online_pct),
-            "cash_percentage": float(branch_cash_pct)
+            "total": revenue_map.get(branch.id, 0)
         })
 
     # =========================

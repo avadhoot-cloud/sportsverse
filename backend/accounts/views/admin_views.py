@@ -132,7 +132,7 @@ class CollectStudentFeeView(APIView):
         student_id = request.data.get('student_id')
         enrollment_id = request.data.get('enrollment_id')
         amount = request.data.get('amount')
-        payment_method = request.data.get('payment_method', 'cash').lower()
+        payment_method = request.data.get('payment_method', 'Cash')
 
         transaction = (
             FeeTransaction.objects
