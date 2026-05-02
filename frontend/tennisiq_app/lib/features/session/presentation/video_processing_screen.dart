@@ -143,7 +143,21 @@ class _VideoProcessingScreenState extends ConsumerState<VideoProcessingScreen>
               'TennisIQ AI is analysing your recording.',
               style: TextStyle(color: Colors.white54, fontSize: 14),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E5A0).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF00E5A0).withValues(alpha: 0.3)),
+              ),
+              child: const Text(
+                'Estimated processing time: ~1 day\nYou will be notified once complete.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xFF00E5A0), fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(height: 12),
             Text(
               'Session #${widget.sessionId}',
               style: const TextStyle(color: Colors.white24, fontSize: 11),

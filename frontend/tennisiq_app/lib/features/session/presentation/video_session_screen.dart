@@ -72,7 +72,8 @@ class _VideoSessionScreenState extends ConsumerState<VideoSessionScreen> {
 
   Future<void> _pickVideo() async {
     FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.video,
+      type: FileType.custom,
+      allowedExtensions: ['mp4', 'mov', 'avi', 'mkv', 'jpg', 'jpeg', 'png', 'avif', 'webp'],
       withData: kIsWeb,
     );
 
@@ -97,6 +98,85 @@ class _VideoSessionScreenState extends ConsumerState<VideoSessionScreen> {
   Future<void> _analyzeVideo() async {
     if (_recordedVideo == null) return;
     
+    final name = _recordedVideo!.name.toLowerCase();
+    final isImage = name.endsWith('.jpg') || 
+                   name.endsWith('.jpeg') || 
+                   name.endsWith('.png') || 
+                   name.endsWith('.avif') || 
+                   name.endsWith('.webp');
+
+    if (isImage) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF161B22),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.redAccent, width: 0.5)),
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.redAccent),
+              SizedBox(width: 12),
+              Text('Image Detected', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+          content: const Text(
+            'Only video recordings are accepted for AI analysis. Please upload a valid tennis match video.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK', style: TextStyle(color: Color(0xFF00E5A0))),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Success Signal for Video
+    bool proceed = false;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161B22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF00E5A0), width: 0.5)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_outline, color: Color(0xFF00E5A0)),
+            SizedBox(width: 12),
+            Text('Success', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Your video has been accepted for processing.',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Note: AI processing will take approx 1 day. You will be notified via email/push once the analysis is complete.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              proceed = true;
+              Navigator.pop(ctx);
+            },
+            child: const Text('START UPLOAD', style: TextStyle(color: Color(0xFF00E5A0))),
+          ),
+        ],
+      ),
+    );
+
+    if (!proceed) return;
+
     setState(() => _isUploading = true);
     
     try {
