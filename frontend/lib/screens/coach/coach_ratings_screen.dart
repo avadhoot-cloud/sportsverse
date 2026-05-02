@@ -392,6 +392,7 @@ class _CoachRatingsScreenState extends State<CoachRatingsScreen> {
 
                 // Opponent picker
                 DropdownButtonFormField<StudentRatingItem>(
+                  isExpanded: true,
                   value: opponent,
                   decoration: InputDecoration(
                     labelText: 'Opponent',

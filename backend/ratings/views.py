@@ -348,11 +348,9 @@ class ForecastMatchView(APIView):
         except CustomUser.DoesNotExist:
             return Response({'error': 'Player not found'}, status=404)
 
-        if not profile1 or not profile2:
-            return Response({'error': 'Rating profiles not found for one or both players'}, status=404)
-
-        r1 = float(profile1.dupr_rating_singles if fmt == 'SINGLES' else profile1.dupr_rating_doubles)
-        r2 = float(profile2.dupr_rating_singles if fmt == 'SINGLES' else profile2.dupr_rating_doubles)
+        # Fallback to defaults if profiles are missing
+        r1 = float(profile1.dupr_rating_singles if fmt == 'SINGLES' else profile1.dupr_rating_doubles) if profile1 else 4.000
+        r2 = float(profile2.dupr_rating_singles if fmt == 'SINGLES' else profile2.dupr_rating_doubles) if profile2 else 4.000
 
         win_prob1 = expected_points_percentage(r1, r2)
         
