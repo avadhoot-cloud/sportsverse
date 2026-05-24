@@ -31,7 +31,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       final api = ApiClient();
       final response =
-          await api.get("api/organizations/student/attendance/");
+          await api.get("/api/organizations/student/attendance/");
 
       final decoded = jsonDecode(response.body);
 

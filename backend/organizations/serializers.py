@@ -61,19 +61,26 @@ class BatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'organization_name', 'branch_name', 'sport_name']
     
     def validate_name(self, value):
-        # Check if batch name is unique within the branch
+        # Batch names must be unique within a branch (not the whole academy).
         request = self.context.get('request')
         if request and hasattr(request.user, 'academy_admin_profile'):
             organization = request.user.academy_admin_profile.organization
-            
-            # For updates, exclude the current instance
+
+            branch_id = self.initial_data.get('branch')
+            if branch_id is None and self.instance is not None:
+                branch_id = self.instance.branch_id
+
             queryset = Batch.objects.filter(organization=organization, name=value)
-            if self.instance:
+            if branch_id is not None:
+                queryset = queryset.filter(branch_id=branch_id)
+            if self.instance is not None:
                 queryset = queryset.exclude(pk=self.instance.pk)
-                
+
             if queryset.exists():
-                raise serializers.ValidationError("A batch with this name already exists in your academy.")
-        
+                raise serializers.ValidationError(
+                    "A batch with this name already exists in this branch."
+                )
+
         return value
     
     def validate_branch(self, value):
@@ -350,13 +357,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
     batch_name = serializers.CharField(source='batch.name', read_only=True)
     marked_by_name = serializers.SerializerMethodField()
     is_present = serializers.SerializerMethodField()
-    
 
-def get_marked_by_name(self, obj):
-    if obj.marked_by:
-        return f"{obj.marked_by.first_name} {obj.marked_by.last_name}"
-    return None
-
+    def get_marked_by_name(self, obj):
+        if obj.marked_by:
+            return f"{obj.marked_by.first_name} {obj.marked_by.last_name}"
+        return None
 
     class Meta:
         model = Attendance

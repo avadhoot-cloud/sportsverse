@@ -2,22 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sportsverse_app/providers/student_provider.dart';
 
-class ProgressScreen extends StatelessWidget {
+class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
 
-  // Skill breakdown for display – pulled from dashboard provider where possible
-  static const List<Map<String, dynamic>> _skills = [
-    {'label': 'Footwork', 'level': 0.72, 'color': Color(0xFF1B3D2F)},
-    {'label': 'Technique', 'level': 0.58, 'color': Color(0xFF1565C0)},
-    {'label': 'Stamina', 'level': 0.84, 'color': Color(0xFF2E7D32)},
-    {'label': 'Game IQ', 'level': 0.45, 'color': Color(0xFF7B1FA2)},
-    {'label': 'Consistency', 'level': 0.63, 'color': Color(0xFFE65100)},
-  ];
+  @override
+  State<ProgressScreen> createState() => _ProgressScreenState();
+}
+
+class _ProgressScreenState extends State<ProgressScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      Provider.of<StudentProvider>(context, listen: false).loadDashboardData();
+    });
+  }
+
+  List<Map<String, dynamic>> _skillsFromData(StudentProvider provider) {
+    final data = provider.dashboardData;
+    if (data == null) return [];
+    final singles = data.duprSinglesRating / 8.0;
+    final doubles = data.duprDoublesRating / 8.0;
+    final reliability = data.duprReliability / 100.0;
+    int total = 0;
+    int attended = 0;
+    for (final e in data.currentEnrollments) {
+      total += e.totalSessions ?? 0;
+      attended += e.sessionsAttended;
+    }
+    final attendance = total > 0 ? attended / total : 0.0;
+    return [
+      {'label': 'Singles Rating', 'level': singles.clamp(0.0, 1.0), 'color': const Color(0xFF1B3D2F)},
+      {'label': 'Doubles Rating', 'level': doubles.clamp(0.0, 1.0), 'color': const Color(0xFF1565C0)},
+      {'label': 'Reliability', 'level': reliability.clamp(0.0, 1.0), 'color': const Color(0xFF2E7D32)},
+      {'label': 'Attendance', 'level': attendance.clamp(0.0, 1.0), 'color': const Color(0xFF7B1FA2)},
+      {'label': 'Match Play', 'level': (data.duprMatchesSingles / 20).clamp(0.0, 1.0), 'color': const Color(0xFFE65100)},
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<StudentProvider>();
     final data = provider.dashboardData;
+    final skills = _skillsFromData(provider);
 
     // Aggregate session data from enrollments
     int totalSessions = 0;
@@ -82,8 +109,7 @@ class ProgressScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Skill Breakdown
-                  const Text("Skill Breakdown", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('Performance Metrics', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
                   const Text("Based on coach evaluations",
                       style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -96,7 +122,7 @@ class ProgressScreen extends StatelessWidget {
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
                     ),
                     child: Column(
-                      children: _skills.map((s) => _buildSkillBar(s)).toList(),
+                      children: skills.map((s) => _buildSkillBar(s)).toList(),
                     ),
                   ),
                   const SizedBox(height: 24),

@@ -14,12 +14,7 @@ from organizations.models import Batch, Branch, Sport, Enrollment
 from accounts.models import StudentProfile
 from .models import FeeTransaction, CoachSalaryTransaction, GeneralExpense
 from .serializers import StudentFeeSerializer
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.http import HttpResponse
-from .models import FeeTransaction
-from .serializers import StudentFeeSerializer
+from .financial_helpers import build_student_financial_data
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -89,37 +84,7 @@ class BatchFinancialsSummaryView(APIView):
         students_data = []
         for enrollment in enrollments:
             student = enrollment.student
-            sessions_left = None
-            total_sessions = None
-            if enrollment.enrollment_type == 'SESSION_BASED':
-                total_sessions = enrollment.total_sessions or 0
-                sessions_left = max(0, total_sessions - (enrollment.sessions_attended or 0))
-
-            unpaid_count = FeeTransaction.objects.filter(enrollment=enrollment, is_paid=False).count()
-            transactions = FeeTransaction.objects.filter(student=student, enrollment=enrollment).order_by('-transaction_date')
-            
-            payment_history = [
-                {
-                    'id': t.id,
-                    'amount': float(t.amount),
-                    'transaction_date': t.transaction_date.isoformat() if t.transaction_date else None,
-                    'is_paid': t.is_paid,
-                    'payment_method': t.payment_method,
-                }
-                for t in transactions
-            ]
-
-            students_data.append({
-                'student_id': student.id,
-                'enrollment_id': enrollment.id,
-                'first_name': student.first_name,
-                'last_name': student.last_name,
-                'sessions_left': sessions_left,
-                'total_sessions': total_sessions,
-                'unpaid_sessions': unpaid_count,
-                'payment_history': payment_history,
-                'policy': batch.payment_policy
-            })
+            students_data.append(build_student_financial_data(enrollment, student, batch))
 
         return Response({
             'batch': {
@@ -135,24 +100,32 @@ class CollectStudentFeeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not hasattr(request.user, 'academy_admin_profile'):
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         student_id = request.data.get('student_id')
         enrollment_id = request.data.get('enrollment_id')
         amount = request.data.get('amount')
         payment_method = request.data.get('payment_method', 'Cash')
-        
+
         transaction = FeeTransaction.objects.filter(
-            student_id=student_id, 
-            enrollment_id=enrollment_id
-        ).last()
+            student_id=student_id,
+            enrollment_id=enrollment_id,
+            is_paid=False,
+        ).order_by('id').first()
 
         if transaction:
             transaction.is_paid = True
             transaction.amount = amount
             transaction.payment_method = payment_method
             transaction.transaction_date = timezone.now()
+            if hasattr(transaction, 'paid_date'):
+                transaction.paid_date = timezone.now()
             transaction.save()
         else:
             enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+            if enrollment.organization != request.user.academy_admin_profile.organization:
+                return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             transaction = FeeTransaction.objects.create(
                 student_id=student_id,
                 enrollment=enrollment,
@@ -160,9 +133,9 @@ class CollectStudentFeeView(APIView):
                 amount=amount,
                 is_paid=True,
                 payment_method=payment_method,
-                transaction_date=timezone.now()
+                transaction_date=timezone.now(),
             )
-        
+
         return Response({
             'status': 'success',
             'message': 'Payment recorded successfully',
@@ -180,31 +153,55 @@ def get_dashboard_analytics(request):
     from django.db.models import Sum, F
     from organizations.models import Branch
 
-    current_year = timezone.now().year
+    period = request.GET.get('period', 'year')
+    now = timezone.now()
+    current_year = now.year
+    current_month = now.month
 
-    # =========================
-    # 💰 INCOME
-    # =========================
-    income_qs = FeeTransaction.objects.filter(
-        organization=organization,
-        is_paid=True,
-        transaction_date__year=current_year
-    )
+    income_qs = FeeTransaction.objects.filter(organization=organization, is_paid=True)
+    salary_qs = CoachSalaryTransaction.objects.filter(organization=organization)
+    general_qs = GeneralExpense.objects.filter(organization=organization)
+
+    if period == 'month':
+        income_qs = income_qs.filter(
+            transaction_date__year=current_year,
+            transaction_date__month=current_month,
+        )
+        salary_qs = salary_qs.filter(
+            transaction_date__year=current_year,
+            transaction_date__month=current_month,
+        )
+        general_qs = general_qs.filter(
+            date__year=current_year,
+            date__month=current_month,
+        )
+        period_label = f'{current_year}-{current_month:02d}'
+    elif period == 'quarter':
+        quarter_start = ((current_month - 1) // 3) * 3 + 1
+        quarter_end = quarter_start + 2
+        income_qs = income_qs.filter(
+            transaction_date__year=current_year,
+            transaction_date__month__gte=quarter_start,
+            transaction_date__month__lte=quarter_end,
+        )
+        salary_qs = salary_qs.filter(
+            transaction_date__year=current_year,
+            transaction_date__month__gte=quarter_start,
+            transaction_date__month__lte=quarter_end,
+        )
+        general_qs = general_qs.filter(
+            date__year=current_year,
+            date__month__gte=quarter_start,
+            date__month__lte=quarter_end,
+        )
+        period_label = f'Q{((current_month - 1) // 3) + 1} {current_year}'
+    else:
+        income_qs = income_qs.filter(transaction_date__year=current_year)
+        salary_qs = salary_qs.filter(transaction_date__year=current_year)
+        general_qs = general_qs.filter(date__year=current_year)
+        period_label = str(current_year)
 
     total_income = income_qs.aggregate(total=Sum('amount'))['total'] or 0
-
-    # =========================
-    # 💸 EXPENSES
-    # =========================
-    salary_qs = CoachSalaryTransaction.objects.filter(
-        organization=organization,
-        transaction_date__year=current_year
-    )
-
-    general_qs = GeneralExpense.objects.filter(
-        organization=organization,
-        date__year=current_year
-    )
 
     total_salary = salary_qs.aggregate(total=Sum('amount'))['total'] or 0
     total_general = general_qs.aggregate(total=Sum('amount'))['total'] or 0
@@ -309,6 +306,8 @@ def get_dashboard_analytics(request):
     return Response({
         "summary": {
             "year": current_year,
+            "period": period,
+            "period_label": period_label,
             "total_income": float(total_income),
             "total_expense": total_expense,
             "total_profit": total_profit,

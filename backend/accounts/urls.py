@@ -25,6 +25,12 @@ from .views import (
     StudentAttendanceView,
     StudentPaymentsView,
     StudentPaymentSummaryView,
+    StudentEnrollmentsView,
+    StudentAttendanceSummaryView,
+    StudentStaffView,
+    StudentNotificationsView,
+    StudentEventsView,
+    StudentReportsListView,
     # Profile
     StudentProfileUpdateView,
     StudentProfilePhotoUploadView,
@@ -63,6 +69,12 @@ urlpatterns = [
     path('attendance/', StudentAttendanceView.as_view(), name='student-attendance'),
     path('payments/', StudentPaymentsView.as_view(), name='student-payments'),
     path('payments/summary/', StudentPaymentSummaryView.as_view(), name='student-payment-summary'),
+    path('enrollments/', StudentEnrollmentsView.as_view(), name='student-enrollments'),
+    path('attendance/summary/', StudentAttendanceSummaryView.as_view(), name='student-attendance-summary'),
+    path('staff/', StudentStaffView.as_view(), name='student-staff'),
+    path('notifications/', StudentNotificationsView.as_view(), name='student-notifications'),
+    path('events/', StudentEventsView.as_view(), name='student-events'),
+    path('reports/', StudentReportsListView.as_view(), name='student-reports'),
 
     # ── Profile ──────────────────────────────────────────────────────────────
     path('profile/', StudentProfileUpdateView.as_view(), name='student-profile'),

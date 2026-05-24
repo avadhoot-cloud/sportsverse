@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:sportsverse_app/api/api_client.dart';
+import 'package:sportsverse_app/screens/academy_admin/student_attendance_detail_screen.dart';
 
 class ViewAttendanceScreen extends StatefulWidget {
   const ViewAttendanceScreen({super.key});
@@ -111,12 +112,30 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _attendanceSummary.length,
-                itemBuilder: (context, i) => Card(
-                  child: ListTile(
-                    title: Text(_attendanceSummary[i]['student_name']),
-                    trailing: Text("${_attendanceSummary[i]['attendance_percentage']}%", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
+                itemBuilder: (context, i) {
+                  final row = _attendanceSummary[i];
+                  return Card(
+                    child: ListTile(
+                      title: Text(row['student_name'] ?? 'Student'),
+                      trailing: Text(
+                        "${row['attendance_percentage']}%",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StudentAttendanceDetailScreen(
+                              studentId: row['student_id'] as int,
+                              studentName: row['student_name'] ?? 'Student',
+                              batchId: _selectedBatch,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
             ]
           ],

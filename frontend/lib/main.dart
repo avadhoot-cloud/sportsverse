@@ -12,6 +12,7 @@ import 'package:sportsverse_app/screens/auth/forgot_password_screen.dart';
 import 'package:sportsverse_app/screens/auth/password_reset_confirm_screen.dart';
 import 'package:sportsverse_app/screens/auth/change_password_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/admin_dashboard_screen.dart';
+import 'package:sportsverse_app/screens/academy_admin/admin_chatbot_screen.dart';
 import 'package:sportsverse_app/screens/auth/register_user_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/attendance_branch_select_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/take_attendance_screen.dart';
@@ -131,6 +132,7 @@ if (!authProvider.isAuthenticated) {
         '/attendance/view': (context) => const ViewAttendanceScreen(),
         '/profile': (context) => const StudentProfileScreen(),
         '/login': (context) => const LoginScreen(),
+        '/chatbot': (context) => const AdminChatbotScreen(),
       },
 
       // Removed builder because we are moving to the Elite Curator Design System,

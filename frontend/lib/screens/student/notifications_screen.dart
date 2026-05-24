@@ -1,51 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:sportsverse_app/api/student_api.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Placeholder notifications – replace with real API data in PR2
-    final List<Map<String, dynamic>> notifications = [
-      {
-        'icon': Icons.sports,
-        'title': 'New batch schedule uploaded',
-        'body': 'Your morning batch schedule has been updated by the coach.',
-        'time': '2 hours ago',
-        'unread': true,
-        'color': const Color(0xFF1B3D2F),
-      },
-      {
-        'icon': Icons.payment,
-        'title': 'Fee payment due',
-        'body': 'Your monthly fee for Cricket batch is due on 28 Feb 2026.',
-        'time': '1 day ago',
-        'unread': true,
-        'color': const Color(0xFFD32F2F),
-      },
-      {
-        'icon': Icons.event,
-        'title': 'Academy Tournament – March 5',
-        'body': 'Inter-batch tournament announced. Check the Events section for details.',
-        'time': '3 days ago',
-        'unread': false,
-        'color': const Color(0xFF1565C0),
-      },
-      {
-        'icon': Icons.videocam,
-        'title': 'New training video added',
-        'body': 'Coach uploaded "Footwork Drills – Advanced" to your video library.',
-        'time': '5 days ago',
-        'unread': false,
-        'color': const Color(0xFF7B1FA2),
-      },
-    ];
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
 
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  List<Map<String, dynamic>> _notifications = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final items = await StudentApi.getNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = items;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  IconData _iconFor(String? key) {
+    switch (key) {
+      case 'payment':
+        return Icons.payment;
+      case 'videocam':
+        return Icons.videocam;
+      case 'event':
+        return Icons.event;
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  Color _colorFor(String? hex) {
+    if (hex == null || !hex.startsWith('#')) return const Color(0xFF1B3D2F);
+    try {
+      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return const Color(0xFF1B3D2F);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
         title: const Text(
-          "Notifications",
+          'Notifications',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         backgroundColor: Colors.white,
@@ -57,117 +73,118 @@ class NotificationsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: () => setState(() {
+              for (final n in _notifications) {
+                n['unread'] = false;
+              }
+            }),
             child: const Text(
-              "Mark all read",
+              'Mark all read',
               style: TextStyle(color: Color(0xFF1B3D2F), fontWeight: FontWeight.w600),
             ),
           ),
         ],
       ),
-      body: notifications.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final n = notifications[index];
-                return _buildNotificationCard(n);
-              },
-            ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1B3D2F)))
+          : _notifications.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _notifications.length,
+                    itemBuilder: (context, index) {
+                      final n = _notifications[index];
+                      return _buildNotificationCard(n);
+                    },
+                  ),
+                ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1B3D2F).withOpacity(0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.notifications_none, size: 56, color: Color(0xFF1B3D2F)),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "All caught up!",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "No new notifications right now.",
-            style: TextStyle(color: Colors.grey, fontSize: 14),
-          ),
+          Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('No notifications yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
         ],
       ),
     );
   }
 
   Widget _buildNotificationCard(Map<String, dynamic> n) {
+    final unread = n['unread'] == true;
+    final color = _colorFor(n['color']?.toString());
+    final time = n['time']?.toString().split('T').first ?? '';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: n['unread'] == true ? const Color(0xFFF0F7F4) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: n['unread'] == true
-              ? const Color(0xFF1B3D2F).withOpacity(0.18)
-              : Colors.grey.shade100,
+          color: unread ? color.withValues(alpha: 0.4) : Colors.grey.shade200,
+          width: unread ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
-            offset: const Offset(0, 3),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: (n['color'] as Color).withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 22),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                n['title'] as String,
-                style: TextStyle(
-                  fontWeight: n['unread'] == true ? FontWeight.bold : FontWeight.w500,
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
-              ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            if (n['unread'] == true)
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1B3D2F),
-                  shape: BoxShape.circle,
+            child: Icon(_iconFor(n['icon']?.toString()), color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        n['title']?.toString() ?? '',
+                        style: TextStyle(
+                          fontWeight: unread ? FontWeight.bold : FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (unread)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                  ],
                 ),
-              ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(n['body'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 6),
-            Text(n['time'] as String,
-                style: const TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
-          ],
-        ),
+                const SizedBox(height: 4),
+                Text(
+                  n['body']?.toString() ?? '',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                Text(time, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

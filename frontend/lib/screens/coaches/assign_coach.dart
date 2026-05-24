@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
 
 class AssignCoachScreen extends StatefulWidget {
@@ -45,7 +46,7 @@ class _AssignCoachPageState extends State<AssignCoachScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/coaches/assign/'),
+        Uri.parse('${ApiClient.baseUrl}/api/coaches/assign/'),
         headers: {
           'Authorization': 'Token $token',
           'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ class _AssignCoachPageState extends State<AssignCoachScreen> {
       final token = authProvider.token;
 
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/coaches/batches-lookup/?branch_id=$selectedBranch&sport_id=$selectedSport'),
+        Uri.parse('${ApiClient.baseUrl}/api/coaches/batches-lookup/?branch_id=$selectedBranch&sport_id=$selectedSport'),
         headers: {'Authorization': 'Token $token'},
       );
 
@@ -98,7 +99,7 @@ class _AssignCoachPageState extends State<AssignCoachScreen> {
     final token = authProvider.token;
 
     final response = await http.post(
-      Uri.parse('http://127.0.0.1:8000/api/coaches/assign/'),
+      Uri.parse('${ApiClient.baseUrl}/api/coaches/assign/'),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Token $token",

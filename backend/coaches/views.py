@@ -38,14 +38,44 @@ class CoachListView(views.APIView):
 
     def get(self, request):
         org = request.user.academy_admin_profile.organization
-        coaches = CoachProfile.objects.filter(organization=org)
-        data = [{
-            "id": c.id,
-            "full_name": f"{c.user.first_name} {c.user.last_name}",
-            "email": c.user.email,
-            "phone": c.phone_number
-        } for c in coaches]
+        coaches = CoachProfile.objects.filter(organization=org).prefetch_related(
+            'assignments__batch', 'assignments__branch', 'assignments__sport'
+        )
+        data = []
+        for c in coaches:
+            assignments = [
+                {
+                    'id': a.id,
+                    'batch_id': a.batch_id,
+                    'batch_name': a.batch.name,
+                    'branch_name': a.branch.name,
+                    'sport_name': a.sport.name,
+                }
+                for a in c.assignments.all()
+            ]
+            data.append({
+                'id': c.id,
+                'full_name': f"{c.user.first_name} {c.user.last_name}",
+                'email': c.user.email,
+                'phone': c.phone_number,
+                'assignments': assignments,
+            })
         return Response(data)
+
+
+class CoachAssignmentDeleteView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, assignment_id):
+        org = request.user.academy_admin_profile.organization
+        assignment = CoachAssignment.objects.filter(
+            pk=assignment_id,
+            coach__organization=org,
+        ).first()
+        if not assignment:
+            return Response({'error': 'Assignment not found'}, status=404)
+        assignment.delete()
+        return Response({'message': 'Coach assignment removed'}, status=200)
     
 class CoachAssignmentView(views.APIView):
     permission_classes = [IsAuthenticated]

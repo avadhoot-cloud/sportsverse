@@ -1,0 +1,276 @@
+=== CHATBOT_KNOWLEDGE_BASE ===
+FORMAT: Each entry separated by ---ENTRY---
+
+---ENTRY---
+id: dashboard_stats
+patterns:
+  show dashboard stats
+  what are the total stats
+  give me dashboard overview
+  how many students do we have
+  total students coaches branches batches
+  academy overview
+  show me stats
+  stats overview
+  dashboard summary
+  whats in my dashboard
+answer_template: "Here's your academy overview: {total_students} students, {total_coaches} coaches, {total_branches} branches, and {total_batches} active batches."
+requires_db: true
+db_query_key: dashboard_stats
+---ENTRY---
+id: student_count
+patterns:
+  how many students
+  total number of students
+  student count
+  students enrolled
+  how many kids
+  number of students in academy
+answer_template: "Your academy currently has {total_students} enrolled students."
+requires_db: true
+db_query_key: dashboard_stats
+---ENTRY---
+id: coach_count
+patterns:
+  how many coaches
+  total coaches
+  coach count
+  number of coaches
+  coaches in academy
+answer_template: "You have {total_coaches} coaches registered in your academy."
+requires_db: true
+db_query_key: dashboard_stats
+---ENTRY---
+id: branch_count
+patterns:
+  how many branches
+  total branches
+  branch count
+  number of branches
+  locations
+  how many locations
+answer_template: "Your academy has {total_branches} branches/locations."
+requires_db: true
+db_query_key: dashboard_stats
+---ENTRY---
+id: batch_count
+patterns:
+  how many batches
+  total batches
+  batch count
+  number of batches
+  training groups
+  how many training sessions
+answer_template: "There are {total_batches} active batches running in your academy."
+requires_db: true
+db_query_key: dashboard_stats
+---ENTRY---
+id: avadhoot_attendance
+patterns:
+  show attendance of avadhoot pawaskar
+  avadhoot pawaskar attendance
+  avadhoot attendance
+  attendance avadhoot
+  how many sessions did avadhoot attend
+  avadhoot pawaskar sessions
+  check avadhoot attendance
+  avadhoot student attendance record
+  attendance record avadhoot
+  avadhoot session count
+answer_template: "Avadhoot Student (avadhoot_student) attendance: {sessions_attended} sessions attended out of {total_sessions} total. Enrollment status: {enrollment_status}. Enrollment started: {enrollment_started}."
+requires_db: true
+db_query_key: avadhoot_attendance
+---ENTRY---
+id: avadhoot_profile
+patterns:
+  show profile of avadhoot
+  avadhoot student details
+  avadhoot profile
+  who is avadhoot
+  avadhoot pawaskar info
+  details of avadhoot
+  avadhoot student info
+answer_template: "Avadhoot Student Profile — Name: Avadhoot Student, Username: avadhoot_student, Org: Elite Tennis Academy, DOB: 2000-01-01. Enrolled in: {batch_name} batch."
+requires_db: true
+db_query_key: avadhoot_profile
+---ENTRY---
+id: mark_attendance_avadhoot
+patterns:
+  mark attendance for avadhoot
+  mark avadhoot present
+  avadhoot attendance mark
+  mark avadhoot attendance today
+  mark present avadhoot pawaskar
+  take attendance avadhoot
+action_type: mark_attendance
+action_params: {student_username: avadhoot_student}
+answer_template: "✅ Attendance marked successfully for Avadhoot Student for today ({today_date}). Sessions attended updated."
+requires_db: true
+db_query_key: mark_attendance_avadhoot
+---ENTRY---
+id: recent_payments
+patterns:
+  show recent payments
+  latest payments
+  recent fee collections
+  payment history
+  last payments collected
+  who paid recently
+  recent transactions
+answer_template: "Recent payments in your academy: {recent_payments_list}"
+requires_db: true
+db_query_key: recent_payments
+---ENTRY---
+id: unpaid_fees
+patterns:
+  show unpaid fees
+  who hasnt paid
+  pending payments
+  outstanding fees
+  dues pending
+  unpaid students
+  fee dues
+  who owes money
+answer_template: "Pending fees in your academy: {unpaid_count} unpaid transactions totaling ₹{unpaid_amount}. Students with dues: {unpaid_students_list}"
+requires_db: true
+db_query_key: unpaid_fees
+---ENTRY---
+id: list_students
+patterns:
+  show all students
+  list students
+  who are the students
+  students list
+  display students
+  show student names
+  all enrolled students
+answer_template: "Students in your academy ({total_students} total): {students_list}"
+requires_db: true
+db_query_key: list_students
+---ENTRY---
+id: list_coaches
+patterns:
+  show all coaches
+  list coaches
+  who are the coaches
+  coaches list
+  display coaches
+  show coach names
+  all coaches
+answer_template: "Coaches in your academy ({total_coaches} total): {coaches_list}"
+requires_db: true
+db_query_key: list_coaches
+---ENTRY---
+id: list_branches
+patterns:
+  show all branches
+  list branches
+  show locations
+  academy branches
+  where are the branches
+  branch names
+  display branches
+answer_template: "Your academy branches: {branches_list}"
+requires_db: true
+db_query_key: list_branches
+---ENTRY---
+id: list_batches
+patterns:
+  show all batches
+  list batches
+  active batches
+  training batches
+  show batch names
+  display batches
+  what batches are running
+answer_template: "Active batches in your academy: {batches_list}"
+requires_db: true
+db_query_key: list_batches
+---ENTRY---
+id: financial_summary
+patterns:
+  financial summary
+  show revenue
+  income summary
+  total income
+  how much money collected
+  revenue stats
+  financial overview
+  total fees collected
+  money earned
+answer_template: "Financial Summary: Total income collected: ₹{total_income}. Total pending: ₹{total_due}. Online payments: {online_pct}%, Cash payments: {cash_pct}%."
+requires_db: true
+db_query_key: financial_summary
+---ENTRY---
+id: elite_tennis_info
+patterns:
+  tell me about elite tennis academy
+  elite tennis details
+  elite tennis academy info
+  about elite tennis
+answer_template: "Elite Tennis Academy — Admin: avadhoot_admin. Sports: Tennis. Has branches and batches configured. Coaches include avadhoot_coach and others."
+requires_db: false
+---ENTRY---
+id: help
+patterns:
+  help
+  what can you do
+  what can i ask
+  show commands
+  commands list
+  how to use chatbot
+  chatbot help
+  what questions can i ask
+  assistant help
+  bot help
+answer_template: "I can help you with: 📊 Dashboard stats (students, coaches, batches, branches) | 👨‍🎓 Student info & attendance | 💰 Fee & payment info | 📋 List coaches, students, batches | ✅ Mark attendance | 🏫 Branch info. Just ask naturally!"
+requires_db: false
+---ENTRY---
+id: collect_fee
+patterns:
+  collect fee
+  record payment
+  mark fee paid
+  student paid
+  collect payment from student
+  mark payment as paid
+action_type: collect_fee
+answer_template: "💰 To collect a fee, please navigate to the Batch Financials screen and use the 'Collect Fee' button for the specific student. Or tell me the student name and batch for direct action."
+requires_db: false
+---ENTRY---
+id: total_income
+patterns:
+  total income this year
+  yearly income
+  annual revenue
+  how much earned this year
+  income this year
+  yearly earnings
+answer_template: "Total income this year: ₹{total_income}. Total expenses: ₹{total_expense}. Net profit: ₹{total_profit}."
+requires_db: true
+db_query_key: financial_summary
+---ENTRY---
+id: attendance_today
+patterns:
+  whos present today
+  attendance today
+  todays attendance
+  who attended today
+  students present today
+  mark todays attendance
+  bulk attendance today
+answer_template: "To view/mark today's attendance, go to the Attendance section from the dashboard. Today is {today_date}. You can mark attendance batch-wise for all students."
+requires_db: false
+---ENTRY---
+id: enrollment_status
+patterns:
+  show enrollment status
+  active enrollments
+  how many active enrollments
+  enrollment count
+  enrollment stats
+  students enrolled in batches
+answer_template: "Active enrollments in your academy: {active_enrollments} students currently enrolled. Session-based: {session_based_count}, Duration-based: {duration_based_count}."
+requires_db: true
+db_query_key: enrollment_stats
+=== END CHATBOT_KNOWLEDGE_BASE ===

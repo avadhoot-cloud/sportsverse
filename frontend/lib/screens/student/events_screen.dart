@@ -1,57 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:sportsverse_app/api/student_api.dart';
 import 'package:sportsverse_app/theme/elite_theme.dart';
 import 'package:sportsverse_app/widgets/elite_card.dart';
 import 'package:sportsverse_app/widgets/glass_header.dart';
 
-class EventsScreen extends StatelessWidget {
+class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
 
-  static const List<Map<String, dynamic>> _events = [
-    {
-      'title': 'Inter-Batch Tournament',
-      'type': 'TOURNAMENT',
-      'sport': 'Cricket',
-      'day': '05',
-      'month': 'MAR',
-      'time': '9:00 AM',
-      'venue': 'Main Ground, Elite Academy',
-      // We will map colors dynamically in build based on type
-    },
-    {
-      'title': 'Friendly Match – Blue vs Green',
-      'type': 'MATCH',
-      'sport': 'Badminton',
-      'day': '12',
-      'month': 'MAR',
-      'time': '10:30 AM',
-      'venue': 'Indoor Court 2',
-    },
-    {
-      'title': 'Skills Assessment Day',
-      'type': 'ASSESSMENT',
-      'sport': 'All Sports',
-      'day': '20',
-      'month': 'MAR',
-      'time': '8:00 AM',
-      'venue': 'Academy Main Hall',
-    },
-    {
-      'title': 'Season Closing Ceremony',
-      'type': 'EVENT',
-      'sport': 'All Sports',
-      'day': '31',
-      'month': 'MAR',
-      'time': '6:00 PM',
-      'venue': 'Elite Academy Auditorium',
-    },
-  ];
+  @override
+  State<EventsScreen> createState() => _EventsScreenState();
+}
+
+class _EventsScreenState extends State<EventsScreen> {
+  List<Map<String, dynamic>> _events = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final events = await StudentApi.getEvents();
+      if (mounted) {
+        setState(() {
+          _events = events;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   Color _getColorForType(String type, EliteTheme theme) {
     switch (type) {
       case 'TOURNAMENT':
         return theme.error;
       case 'MATCH':
-        return theme.accent; // Lime
+        return theme.accent;
       case 'ASSESSMENT':
         return Colors.purple.shade400;
       default:
@@ -65,131 +55,144 @@ class EventsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.surface,
-      appBar: const GlassHeader(title: "Events & Matches"),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Banner
-            Container(
-              margin: const EdgeInsets.all(24),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.primary,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: theme.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.surfaceContainerLowest.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16)
+      appBar: const GlassHeader(title: 'Events & Matches'),
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: theme.primary,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primary.withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.emoji_events, color: theme.accent, size: 40),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Upcoming Events',
+                                  style: theme.headline.copyWith(color: Colors.white, fontSize: 20),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_events.length} events in your schedule',
+                                  style: theme.caption.copyWith(color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Icon(Icons.event, color: theme.surfaceContainerLowest, size: 32)
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Upcoming Events", style: theme.display2.copyWith(color: theme.surfaceContainerLowest)),
-                      const SizedBox(height: 4),
-                      Text("${_events.length} events this month", style: theme.body.copyWith(color: theme.surfaceContainerLowest.withOpacity(0.8))),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text("Schedule", style: theme.display2),
-            ),
-            const SizedBox(height: 16),
-            
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: _events.length,
-              itemBuilder: (context, i) => _buildEventCard(_events[i], theme),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventCard(Map<String, dynamic> e, EliteTheme theme) {
-    final color = _getColorForType(e['type'] as String, theme);
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: EliteCard(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Date block
-            Container(
-              width: 60,
-              height: 64,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(e['day'] as String, style: theme.display2.copyWith(color: color)),
-                  Text(e['month'] as String, style: theme.caption.copyWith(color: color, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(e['title'] as String, style: theme.subtitle),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
+                    if (_events.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Text('No events scheduled', style: theme.body),
                         ),
-                        child: Text(e['type'] as String,
-                            style: theme.caption.copyWith(color: color, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 14, color: theme.secondaryText),
-                      const SizedBox(width: 4),
-                      Text(e['time'] as String, style: theme.caption.copyWith(color: theme.secondaryText)),
-                      const SizedBox(width: 16),
-                      Icon(Icons.location_on, size: 14, color: theme.secondaryText),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(e['venue'] as String,
-                            style: theme.caption.copyWith(color: theme.secondaryText),
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
-                ],
+                      )
+                    else
+                      ..._events.map((event) {
+                        final type = event['type']?.toString() ?? 'EVENT';
+                        final color = _getColorForType(type, theme);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          child: EliteCard(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        event['day']?.toString() ?? '--',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                          color: color,
+                                        ),
+                                      ),
+                                      Text(
+                                        event['month']?.toString() ?? '',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: color,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        event['title']?.toString() ?? '',
+                                        style: theme.headline.copyWith(fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${event['sport']} · ${event['time']}',
+                                        style: theme.caption,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        event['venue']?.toString() ?? '',
+                                        style: theme.caption.copyWith(color: theme.disabledText),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    type,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -30,6 +30,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   DateTime selectedDate = DateTime.now();
 
   Map<int, bool> attendanceMap = {};
+  bool _selectAll = false;
 
   bool isLoading = false;
 
@@ -87,7 +88,26 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
     setState(() => isLoading = false);
   }
 
-  // 🔥 SUBMIT ATTENDANCE
+  bool _canMarkStudent(dynamic s) {
+    final sessionsLeft = s["sessions_left"];
+    final isCompleted = sessionsLeft != null && sessionsLeft <= 0;
+    final isMarked = s["already_marked"] == true;
+    return !isCompleted && !isMarked;
+  }
+
+  void _toggleSelectAll(bool? value) {
+    final selectAll = value ?? false;
+    setState(() {
+      _selectAll = selectAll;
+      for (var s in students) {
+        final id = s["enrollment_id"] as int;
+        if (_canMarkStudent(s)) {
+          attendanceMap[id] = selectAll;
+        }
+      }
+    });
+  }
+
   Future<void> submitAttendance() async {
     List data = [];
 
@@ -110,7 +130,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   }
 
   // 🔥 STUDENT CARD
-// 🔥 STUDENT CARD
 Widget buildStudentCard(Map s) {
   final enrollmentId = s["enrollment_id"];
   final sessionsLeft = s["sessions_left"];
@@ -260,6 +279,15 @@ Widget buildStudentCard(Map s) {
             const SizedBox(height: 10),
 
             if (isLoading) const CircularProgressIndicator(),
+
+            if (students.isNotEmpty && students.any(_canMarkStudent)) ...[
+              CheckboxListTile(
+                title: const Text("Select All Present"),
+                value: _selectAll,
+                onChanged: _toggleSelectAll,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
 
             Expanded(
               child: students.isEmpty

@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart' as dio_pkg;
+import 'package:provider/provider.dart';
 import 'package:sportsverse_app/api/api_client.dart';
+import 'package:sportsverse_app/providers/auth_provider.dart';
 
 class SendVideoScreen extends StatefulWidget {
   const SendVideoScreen({super.key});
@@ -107,9 +109,15 @@ Future<void> _fetchStudents(String batchId) async {
   }
 
 Future<void> _upload() async {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a video title")),
+      );
+      return;
+    }
     if (_pickedFile == null || _selectedBatch == null || _selectedBranch == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Select Video, Branch, and Batch"))
+        const SnackBar(content: Text("Select Video, Branch, and Batch")),
       );
       return;
     }
@@ -126,13 +134,24 @@ Future<void> _upload() async {
         multipartFile = await dio_pkg.MultipartFile.fromFile(_pickedFile!.path!, filename: _pickedFile!.name);
       }
 
-      // FIX: Added 'organization' and 'branch' which the server requested (400 error)
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final orgId = authProvider.profileDetails?.organizationId;
+      if (orgId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Organization not found. Please log in again.")),
+          );
+        }
+        setState(() => _isUploading = false);
+        return;
+      }
+
       dio_pkg.FormData formData = dio_pkg.FormData.fromMap({
-        "title": _titleController.text,
-        "organization": 1, // Assuming Org ID 1 for now, or fetch from your user profile
-        "branch": _selectedBranch, 
+        "title": _titleController.text.trim(),
+        "organization": orgId,
+        "branch": _selectedBranch,
         "batch": _selectedBatch,
-        "target_students": _selectedStudentIds, 
+        if (_selectedStudentIds.isNotEmpty) "target_students": _selectedStudentIds,
         "video_file": multipartFile,
       });
 
@@ -143,8 +162,14 @@ Future<void> _upload() async {
       );
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Video Sent!"), backgroundColor: Colors.green));
-        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Video Sent!"), backgroundColor: Colors.green),
+        );
+        _titleController.clear();
+        setState(() {
+          _pickedFile = null;
+          _selectedStudentIds = [];
+        });
       }
     } on dio_pkg.DioException catch (e) {
       debugPrint("❌ SERVER ERROR: ${e.response?.data}");
@@ -215,11 +240,15 @@ Future<void> _upload() async {
   Widget _buildDropdown(String label, List items, String? value, Function(String?) onChanged) {
     bool exists = items.any((i) => i['id']?.toString() == value);
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
       value: exists ? value : null,
       items: items.map((i) => DropdownMenuItem<String>(
-        value: i['id'].toString(), 
-        child: Text(i['name'] ?? i['first_name'] ?? i['branch_name'] ?? "No Name")
+        value: i['id'].toString(),
+        child: Text(
+          i['name'] ?? i['first_name'] ?? i['branch_name'] ?? "No Name",
+          overflow: TextOverflow.ellipsis,
+        ),
       )).toList(),
       onChanged: onChanged,
     );

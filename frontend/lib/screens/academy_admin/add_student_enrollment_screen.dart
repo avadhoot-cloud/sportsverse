@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/batch_api.dart';
 import 'package:sportsverse_app/models/batch.dart';
+import 'package:sportsverse_app/utils/form_validators.dart';
 
 class AddStudentEnrollmentScreen extends StatefulWidget {
   final VoidCallback? onSuccess;
@@ -314,12 +315,7 @@ class _AddStudentEnrollmentScreenState
               prefixIcon: Icon(Icons.person),
               border: OutlineInputBorder(),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'First name is required';
-              }
-              return null;
-            },
+            validator: (value) => FormValidators.validateName(value, fieldName: 'First name'),
           ),
           const SizedBox(height: 16),
 
@@ -330,12 +326,7 @@ class _AddStudentEnrollmentScreenState
               prefixIcon: Icon(Icons.person_outline),
               border: OutlineInputBorder(),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Last name is required';
-              }
-              return null;
-            },
+            validator: (value) => FormValidators.validateName(value, fieldName: 'Last name'),
           ),
           const SizedBox(height: 16),
 
@@ -399,15 +390,7 @@ class _AddStudentEnrollmentScreenState
               border: OutlineInputBorder(),
             ),
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Email is required';
-              }
-              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                return 'Please enter a valid email address';
-              }
-              return null;
-            },
+            validator: FormValidators.validateEmail,
           ),
           const SizedBox(height: 16),
 
@@ -419,15 +402,7 @@ class _AddStudentEnrollmentScreenState
               border: OutlineInputBorder(),
             ),
             keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Phone number is required';
-              }
-              if (value.length < 10) {
-                return 'Please enter a valid phone number';
-              }
-              return null;
-            },
+            validator: FormValidators.validatePhone,
           ),
           const SizedBox(height: 16),
 
@@ -459,15 +434,7 @@ class _AddStudentEnrollmentScreenState
               helperText: 'Student will be asked to change this on first login',
             ),
             obscureText: true,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Password is required';
-              }
-              if (value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
+            validator: FormValidators.validatePassword,
           ),
           const SizedBox(height: 16),
 
@@ -479,12 +446,7 @@ class _AddStudentEnrollmentScreenState
               border: OutlineInputBorder(),
             ),
             obscureText: true,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please confirm your password';
-              }
-              return null;
-            },
+            validator: (value) => FormValidators.validateConfirmPassword(value, _passwordController.text),
           ),
           const SizedBox(height: 24),
 
@@ -542,6 +504,7 @@ class _AddStudentEnrollmentScreenState
           const SizedBox(height: 24),
 
           DropdownButtonFormField<Batch>(
+            isExpanded: true,
             value: _selectedBatch,
             decoration: const InputDecoration(
               labelText: 'Select Batch *',
@@ -553,6 +516,7 @@ class _AddStudentEnrollmentScreenState
                 value: batch,
                 child: Text(
                   '${batch.name} (${batch.branchName} - ${batch.sportName})',
+                  overflow: TextOverflow.ellipsis,
                 ),
               );
             }).toList(),

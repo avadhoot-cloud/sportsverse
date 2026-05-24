@@ -171,6 +171,10 @@ class EnrollmentListCreateView(generics.ListCreateAPIView):
             student_id = self.request.query_params.get('student', None)
             if student_id:
                 queryset = queryset.filter(student_id=student_id)
+
+            is_active = self.request.query_params.get('is_active', None)
+            if is_active is not None:
+                queryset = queryset.filter(is_active=is_active.lower() in ('true', '1', 'yes'))
                 
             return queryset
         return Enrollment.objects.none()
@@ -364,122 +368,116 @@ class AttendanceListView(generics.ListCreateAPIView):
 
         return queryset.order_by('date')
 
-def perform_create(self, serializer):
-    # Only admins of the organization can create
-    if not hasattr(self.request.user, 'academy_admin_profile'):
-        raise PermissionError("Only Academy Admins can create attendance records.")
-
-    # Get enrollment
-    enrollment_id = self.request.data.get('enrollment')
-    if not enrollment_id:
-        raise ValueError('enrollment is required')
-
-    enrollment = get_object_or_404(Enrollment, pk=enrollment_id)
-
-    # Validate organization
-    organization = self.request.user.academy_admin_profile.organization
-    if enrollment.organization != organization:
-        raise PermissionError('Cannot mark attendance outside your organization')
-
-    # Get date
-    attendance_date = self.request.data.get('date')
-    if not attendance_date:
-        raise ValueError('date is required')
-
-    print(f"🔍 Backend: Creating attendance for enrollment {enrollment_id}, date {attendance_date}")
-
-    # 🚫 SESSION LIMIT CHECK
-    if enrollment.enrollment_type == 'SESSION_BASED' and enrollment.total_sessions:
-        if enrollment.sessions_attended >= enrollment.total_sessions:
-            raise ValueError(
-                f'Enrollment has reached its session limit '
-                f'({enrollment.sessions_attended}/{enrollment.total_sessions}). '
-                f'Please create a new enrollment.'
+    def create(self, request, *args, **kwargs):
+        if not hasattr(request.user, 'academy_admin_profile'):
+            return Response(
+                {"detail": "Only Academy Admins can create attendance records."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-    # 🔒 LOCK CHECK (IMPORTANT)
-    existing_attendance = Attendance.objects.filter(
-        enrollment=enrollment,
-        date=attendance_date
-    ).select_related('marked_by').first()
+        enrollment_id = request.data.get('enrollment')
+        if not enrollment_id:
+            return Response({"detail": "enrollment is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    if existing_attendance:
-        user_type = existing_attendance.marked_by.user_type if existing_attendance.marked_by else "UNKNOWN"
+        enrollment = get_object_or_404(Enrollment, pk=enrollment_id)
+        organization = request.user.academy_admin_profile.organization
+        if enrollment.organization != organization:
+            return Response(
+                {"detail": "Cannot mark attendance outside your organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        print(f"🚫 Attendance already marked by {user_type}")
+        attendance_date = request.data.get('date')
+        if not attendance_date:
+            return Response({"detail": "date is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        raise ValueError(
-            f"Attendance already marked by {user_type}. You cannot modify it."
+        if enrollment.enrollment_type == 'SESSION_BASED' and enrollment.total_sessions:
+            if enrollment.sessions_attended >= enrollment.total_sessions:
+                return Response(
+                    {
+                        "detail": (
+                            f"Enrollment has reached its session limit "
+                            f"({enrollment.sessions_attended}/{enrollment.total_sessions})."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        existing_attendance = Attendance.objects.filter(
+            enrollment=enrollment,
+            date=attendance_date,
+        ).select_related('marked_by').first()
+
+        if existing_attendance:
+            user_type = (
+                existing_attendance.marked_by.user_type
+                if existing_attendance.marked_by
+                else "UNKNOWN"
+            )
+            return Response(
+                {"detail": f"Attendance already marked by {user_type}. You cannot modify it."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        attendance = Attendance.objects.create(
+            enrollment=enrollment,
+            date=attendance_date,
+            organization=organization,
+            batch=enrollment.batch,
+            student=enrollment.student,
+            marked_by=request.user,
         )
 
-    # ✅ CREATE NEW ATTENDANCE
-    attendance = Attendance.objects.create(
-        enrollment=enrollment,
-        date=attendance_date,
-        organization=organization,
-        batch=enrollment.batch,
-        student=enrollment.student,
-        marked_by=self.request.user
-    )
-
-    print(f"✅ Backend: New attendance record created with ID {attendance.id}")
-
-    # 🎯 CHECK IF ENROLLMENT COMPLETED AFTER THIS
-    enrollment.refresh_from_db()  # IMPORTANT to get updated sessions_attended
-
-    if enrollment.enrollment_type == 'SESSION_BASED' and enrollment.total_sessions:
-        if enrollment.sessions_attended >= enrollment.total_sessions:
-            print(
-                f"🎯 Backend: Enrollment {enrollment_id} is now complete "
-                f"({enrollment.sessions_attended}/{enrollment.total_sessions})"
-            )
+        enrollment.refresh_from_db()
+        if (
+            enrollment.enrollment_type == 'SESSION_BASED'
+            and enrollment.total_sessions
+            and enrollment.sessions_attended >= enrollment.total_sessions
+        ):
             enrollment.is_active = False
             enrollment.save()
-            print(f"✅ Backend: Enrollment {enrollment_id} marked as inactive")
 
-    return attendance
-from datetime import datetime
+        serializer = self.get_serializer(attendance)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class BatchStudentsForAttendanceView(APIView):
     permission_classes = [IsAuthenticated]
 
-def get(self, request):
-    batch_id = request.query_params.get('batch', '').rstrip('/')
-    date = request.query_params.get('date')  # YYYY-MM-DD
+    def get(self, request):
+        batch_id = request.query_params.get('batch', '').rstrip('/')
+        date = request.query_params.get('date')
 
-    if not batch_id or not date:
-        return Response({"error": "batch and date required"}, status=400)
+        if not batch_id or not date:
+            return Response({"error": "batch and date required"}, status=400)
 
-    batch = get_object_or_404(Batch, id=batch_id)
+        batch = get_object_or_404(Batch, id=batch_id)
 
-    # ✅ Check valid day (Mon, Tue etc.)
+        enrollments = Enrollment.objects.filter(
+            batch=batch,
+            is_active=True,
+        ).select_related('student')
 
-    enrollments = Enrollment.objects.filter(
-        batch=batch,
-        is_active=True
-    ).select_related('student')
+        data = []
+        for e in enrollments:
+            attendance_obj = Attendance.objects.filter(
+                enrollment=e,
+                date=date,
+            ).select_related('marked_by').first()
 
-    data = []
+            data.append({
+                "enrollment_id": e.id,
+                "student_id": e.student.id,
+                "student_name": f"{e.student.first_name} {e.student.last_name}",
+                "sessions_left": (
+                    e.total_sessions - e.sessions_attended
+                    if e.total_sessions else None
+                ),
+                "already_marked": attendance_obj is not None,
+                "marked_by": attendance_obj.marked_by.username if attendance_obj else None,
+            })
 
-    for e in enrollments:
-        attendance_obj = Attendance.objects.filter(
-            enrollment=e,
-            date=date
-        ).select_related('marked_by').first()
-
-        data.append({
-            "enrollment_id": e.id,
-            "student_id": e.student.id,
-            "student_name": f"{e.student.first_name} {e.student.last_name}",
-            "sessions_left": (
-                e.total_sessions - e.sessions_attended
-                if e.total_sessions else None
-            ),
-            "already_marked": attendance_obj is not None,  # ✅ BOOLEAN ONLY
-            "marked_by": attendance_obj.marked_by.username if attendance_obj else None
-        })
-
-    return Response(data)
+        return Response(data)
 
 
 from collections import defaultdict

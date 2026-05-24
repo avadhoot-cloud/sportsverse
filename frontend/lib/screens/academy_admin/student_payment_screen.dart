@@ -76,13 +76,15 @@ class _StudentPaymentScreenState extends State<StudentPaymentScreen> {
     }
   }
 
-  void _handleFetchBatchData() async {
+  Future<void> _handleFetchBatchData() async {
     if (_selectedBranchId == null || _selectedBatchId == null || _selectedSportId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select Branch, Sport, and Batch")),
       );
       return;
     }
+
+    final previousStudentId = _selectedStudentId;
 
     setState(() {
       _isFetchingReport = true;
@@ -94,113 +96,130 @@ class _StudentPaymentScreenState extends State<StudentPaymentScreen> {
     try {
       final data = await _paymentApi.getBatchFinancials(
         branchId: _selectedBranchId!,
-        sportId: _selectedSportId!, 
+        sportId: _selectedSportId!,
         batchId: _selectedBatchId!,
       );
 
       if (data != null && data['students'] != null) {
-        setState(() => _studentFinancials = data['students']);
+        final students = List<dynamic>.from(data['students']);
+        Map<String, dynamic>? refreshedStudent;
+        if (previousStudentId != null) {
+          refreshedStudent = students.cast<Map<String, dynamic>?>().firstWhere(
+            (s) => s!['student_id'].toString() == previousStudentId,
+            orElse: () => null,
+          );
+        }
+        setState(() {
+          _studentFinancials = students;
+          if (refreshedStudent != null) {
+            _selectedStudentId = previousStudentId;
+            _selectedStudentData = refreshedStudent;
+          }
+        });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error fetching financials: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error fetching financials: $e")),
+        );
+      }
     } finally {
-      setState(() => _isFetchingReport = false);
+      if (mounted) setState(() => _isFetchingReport = false);
     }
   }
 
-Future<void> _showPaymentDialog() async {
-  final s = _selectedStudentData!;
-  final TextEditingController amountController = TextEditingController();
+  Future<void> _showPaymentDialog() async {
+    final s = _selectedStudentData!;
+    final TextEditingController amountController = TextEditingController();
+    String paymentMethod = "Cash";
 
-  String paymentMethod = "Cash"; // default
-  amountController.text = "";
-
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text("Record Payment for ${s['first_name']}"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text("Policy: ${s['policy'] ?? s['payment_policy'] ?? 'N/A'}"),
-          const SizedBox(height: 10),
-
-          TextField(
-            controller: amountController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: "Amount (₹)",
-              border: OutlineInputBorder(),
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text("Record Payment for ${s['first_name']}"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("Policy: ${s['policy'] ?? s['payment_policy'] ?? 'N/A'}"),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: "Amount (₹)",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: paymentMethod,
+                  decoration: const InputDecoration(
+                    labelText: "Payment Method",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: "Cash", child: Text("Cash")),
+                    DropdownMenuItem(value: "Online", child: Text("UPI / Online")),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => paymentMethod = value);
+                    }
+                  },
+                ),
+              ],
             ),
-          ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text("CANCEL"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (amountController.text.isEmpty) return;
 
-          const SizedBox(height: 12),
+                  try {
+                    final response = await apiClient.post(
+                      '/api/accounts/collect-fee/',
+                      {
+                        'student_id': s['student_id'],
+                        'enrollment_id': s['enrollment_id'],
+                        'amount': double.tryParse(amountController.text.trim()) ?? amountController.text.trim(),
+                        'payment_method': paymentMethod,
+                      },
+                    );
 
-          DropdownButtonFormField<String>(
-            value: paymentMethod,
-            decoration: const InputDecoration(
-              labelText: "Payment Method",
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: "Cash", child: Text("Cash")),
-              DropdownMenuItem(value: "Online", child: Text("UPI / Online")),
-            ],
-            onChanged: (value) {
-              paymentMethod = value!;
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (amountController.text.isEmpty) return;
-
-            try {
-              final response = await apiClient.post(
-                '/api/payments/collect-fee/',
-                {
-                  'student_id': s['student_id'],
-                  'enrollment_id': s['enrollment_id'],
-                  'amount': amountController.text,
-                  'payment_method': paymentMethod,
+                    if (response.statusCode == 200 || response.statusCode == 201) {
+                      if (mounted) {
+                        Navigator.pop(dialogContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Payment Recorded!")),
+                        );
+                        await _handleFetchBatchData();
+                      }
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error: ${response.body}")),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Network Error: $e")),
+                      );
+                    }
+                  }
                 },
-              );
-
-              if (response.statusCode == 200 || response.statusCode == 201) {
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Payment Recorded!")),
-                  );
-                  _handleFetchBatchData();
-                }
-              } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Error: ${response.body}")),
-                  );
-                }
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Network Error: $e")),
-                );
-              }
-            }
-          },
-          child: const Text("CONFIRM"),
-        )
-      ],
-    ),
-  );
-}
+                child: const Text("CONFIRM"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -308,11 +327,21 @@ Future<void> _showPaymentDialog() async {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12))
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("${s['first_name']} ${s['last_name']}", 
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                Chip(label: Text(policy), backgroundColor: Colors.white24),
+                Expanded(
+                  child: Text(
+                    "${s['first_name']} ${s['last_name']}",
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Chip(
+                    label: Text(policy, overflow: TextOverflow.ellipsis),
+                    backgroundColor: Colors.white24,
+                  ),
+                ),
               ],
             ),
           ),
@@ -354,9 +383,17 @@ Future<void> _showPaymentDialog() async {
       children: [
         Icon(icon, size: 20, color: Colors.grey),
         const SizedBox(width: 15),
-        Text(label, style: const TextStyle(fontSize: 16)),
-        const Spacer(),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 16)),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+          ),
+        ),
       ],
     );
   }

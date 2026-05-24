@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:sportsverse_app/screens/academy_admin/mark_attendence.dart';
-import 'package:sportsverse_app/widgets/ai_bot_sheet.dart';
+import 'package:sportsverse_app/screens/academy_admin/admin_chatbot_screen.dart';
 import 'package:sportsverse_app/api/api_client.dart';
 import 'package:sportsverse_app/api/payment_api.dart';
 import 'package:sportsverse_app/providers/auth_provider.dart';
@@ -24,6 +24,7 @@ import 'package:sportsverse_app/screens/coaches/coach_enroll_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/view_students_screen.dart';
 import 'package:sportsverse_app/screens/coaches/coach_list_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/send_video_screen.dart';
+import 'package:sportsverse_app/screens/academy_admin/assign_inactive_students_screen.dart';
 import 'package:sportsverse_app/screens/academy_admin/player_report_screen.dart';
 import 'package:sportsverse_app/widgets/financial_chart.dart';
 
@@ -55,10 +56,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
   bool _isPaymentsExpanded = false;
   bool _isStaffExpanded = false;
   bool _isVideosExpanded = false;
+  bool _isExpensesExpanded = false;
+  String _selectedPeriod = 'year';
   
   Map<String, dynamic>? _analyticsData;
   bool _isChartLoading = false;
-  
+
+  static const Map<String, String> _periodLabels = {
+    'month': 'This Month',
+    'quarter': 'This Quarter',
+    'year': 'This Year',
+  };
 
   Widget? _currentContent;
   late final PaymentApi _paymentApi;
@@ -186,7 +194,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
     });
 
     try {
-      final response = await apiClient.get("/api/payments/dashboard/analytics/");
+      final response = await apiClient.get("/api/payments/dashboard/analytics/?period=$_selectedPeriod");
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map<String, dynamic>) {
@@ -243,30 +251,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
 
             return Scaffold(
               backgroundColor: theme.surface,
-              drawer: isDesktop ? null : _buildSidebar(innerContext, theme),
+              drawer: isDesktop ? null : _buildSidebar(innerContext, authProvider, theme),
               appBar: isDesktop ? null : _buildMobileAppBar(innerContext, authProvider, theme),
               floatingActionButton: ScaleTransition(
                 scale: _scaleAnimation,
-                child: FloatingActionButton(
-                  backgroundColor: theme.accent, // Lime!
-                  child: Icon(Icons.smart_toy, color: theme.primary),
+                child: FloatingActionButton.extended(
+                  backgroundColor: theme.primary,
                   onPressed: () {
-                    final auth = context.read<AuthProvider>();
-                    context.read<ChatbotProvider>().initialize(auth);
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                      ),
-                      builder: (context) => const AIBotSheet(),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminChatbotScreen()),
                     );
                   },
+                  icon: Icon(Icons.smart_toy, color: theme.accent),
+                  label: Text(
+                    'AI Assistant',
+                    style: theme.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
               body: Row(
                 children: [
-                  if (isDesktop) _buildSidebar(innerContext, theme),
+                  if (isDesktop) _buildSidebar(innerContext, authProvider, theme),
                   Expanded(
                     child: Column(
                       children: [
@@ -309,62 +319,78 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                                       _buildAnalyticsDashboardContainer(theme),
                                       const SizedBox(height: 32),
                                       
-                                      /// 💸 EXPENSE SECTION
+                                      /// EXPENSE SECTION (collapsible)
                                       EliteCard(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Text("Expenses", style: theme.display2),
-                                                ElevatedButton.icon(
-                                                  onPressed: showAddExpenseDialog,
-                                                  icon: const Icon(Icons.add, size: 18),
-                                                  label: const Text("Add"),
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: theme.primary,
-                                                    foregroundColor: theme.surfaceContainerLowest,
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                  ),
+                                        padding: EdgeInsets.zero,
+                                        child: ExpansionTile(
+                                          initiallyExpanded: _isExpensesExpanded,
+                                          onExpansionChanged: (val) => setState(() => _isExpensesExpanded = val),
+                                          title: Text("Expenses", style: theme.display2),
+                                          trailing: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              ElevatedButton.icon(
+                                                onPressed: showAddExpenseDialog,
+                                                icon: const Icon(Icons.add, size: 18),
+                                                label: const Text("Add"),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: theme.primary,
+                                                  foregroundColor: theme.surfaceContainerLowest,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                                 ),
-                                              ],
+                                              ),
+                                              Icon(
+                                                _isExpensesExpanded ? Icons.expand_less : Icons.expand_more,
+                                                color: theme.primary,
+                                              ),
+                                            ],
+                                          ),
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                                              child: isLoadingExpenses
+                                                  ? Center(child: CircularProgressIndicator(color: theme.primary))
+                                                  : expenses.isEmpty
+                                                      ? Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                                          child: Text(
+                                                            "No expenses added",
+                                                            style: theme.body.copyWith(color: theme.secondaryText),
+                                                          ),
+                                                        )
+                                                      : ListView.builder(
+                                                          shrinkWrap: true,
+                                                          physics: const NeverScrollableScrollPhysics(),
+                                                          itemCount: expenses.length,
+                                                          itemBuilder: (context, index) {
+                                                            final e = expenses[index];
+                                                            return ListTile(
+                                                              contentPadding: EdgeInsets.zero,
+                                                              leading: Container(
+                                                                padding: const EdgeInsets.all(10),
+                                                                decoration: BoxDecoration(
+                                                                  color: theme.accent.withValues(alpha: 0.2),
+                                                                  borderRadius: BorderRadius.circular(10),
+                                                                ),
+                                                                child: Icon(
+                                                                  e['type'] == "Salary" ? Icons.person : Icons.receipt,
+                                                                  color: theme.primary,
+                                                                  size: 20,
+                                                                ),
+                                                              ),
+                                                              title: Text(e['title'], style: theme.heading),
+                                                              subtitle: Text(
+                                                                e['type'],
+                                                                style: theme.caption.copyWith(color: theme.secondaryText),
+                                                              ),
+                                                              trailing: Text(
+                                                                "₹${e['amount']}",
+                                                                style: theme.subtitle.copyWith(color: theme.primary),
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
                                             ),
-                                            const SizedBox(height: 16),
-                                            isLoadingExpenses
-                                                ? Center(child: CircularProgressIndicator(color: theme.primary))
-                                                : expenses.isEmpty
-                                                    ? Padding(
-                                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                                      child: Text("No expenses added", style: theme.body.copyWith(color: theme.secondaryText)),
-                                                    )
-                                                    : ListView.builder(
-                                                        shrinkWrap: true,
-                                                        physics: const NeverScrollableScrollPhysics(),
-                                                        itemCount: expenses.length,
-                                                        itemBuilder: (context, index) {
-                                                          final e = expenses[index];
-                                                          return ListTile(
-                                                            contentPadding: EdgeInsets.zero,
-                                                            leading: Container(
-                                                              padding: const EdgeInsets.all(10),
-                                                              decoration: BoxDecoration(
-                                                                color: theme.accent.withValues(alpha: 0.2),
-                                                                borderRadius: BorderRadius.circular(10),
-                                                              ),
-                                                              child: Icon(
-                                                                e['type'] == "Salary" ? Icons.person : Icons.receipt,
-                                                                color: theme.primary,
-                                                                size: 20,
-                                                              ),
-                                                            ),
-                                                            title: Text(e['title'], style: theme.heading),
-                                                            subtitle: Text(e['type'], style: theme.caption.copyWith(color: theme.secondaryText)),
-                                                            trailing: Text("₹${e['amount']}", style: theme.subtitle.copyWith(color: theme.primary)),
-                                                          );
-                                                        },
-                                                      ),
                                           ],
                                         ),
                                       ),
@@ -486,13 +512,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                       border: Border.all(color: theme.surfaceContainer),
                       borderRadius: BorderRadius.circular(12)),
                   child: DropdownButton<String>(
-                    value: 'This Year',
+                    value: _selectedPeriod,
                     underline: const SizedBox(),
                     icon: Icon(Icons.keyboard_arrow_down, color: theme.primary),
-                    items: ['This Year']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e, style: theme.body)))
+                    items: _periodLabels.entries
+                        .map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value, style: theme.body),
+                            ))
                         .toList(),
-                    onChanged: (_) {},
+                    onChanged: (val) {
+                      if (val == null) return;
+                      setState(() => _selectedPeriod = val);
+                      _loadAnalytics();
+                    },
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -522,15 +555,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.logout, color: Colors.redAccent),
-          onPressed: _adminLogout,
-        ),
+        _buildProfileMenuButton(auth, theme, iconColor: theme.surfaceContainerLowest),
       ],
     );
   }
 
-  Widget _buildSidebar(BuildContext context, EliteTheme theme) {
+  Widget _buildSidebar(BuildContext context, AuthProvider auth, EliteTheme theme) {
     return Container(
       width: 280,
       color: theme.primary, // Navy
@@ -567,6 +597,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                 setState(() => _currentContent = ChangeNotifierProvider(create: (context) => AdminProvider(), child: const ViewStudentsScreen()));
               }),
               _sidebarSubItem(theme, context, 'Enroll Student', Icons.add_circle_outline, () => setState(() => _currentContent = AddStudentEnrollmentScreen(onSuccess: () => setState(() => _currentContent = null)))),
+              _sidebarSubItem(theme, context, 'Assign Inactive Students', Icons.person_off, () => setState(() => _currentContent = const AssignInactiveStudentsScreen())),
             ],
           ),
 
@@ -622,7 +653,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
           ),
           
           const Divider(color: Colors.white24, height: 32),
-          _sidebarItem(theme, Icons.logout, 'Logout', onTap: _adminLogout),
+          _buildSidebarProfile(theme, auth),
           const SizedBox(height: 40),
         ],
       ),
@@ -766,8 +797,76 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
         const SizedBox(width: 16),
         Text(auth.currentUser?.username ?? 'Admin', style: theme.heading),
         const SizedBox(width: 16),
-        CircleAvatar(backgroundColor: theme.primary, radius: 18, child: Icon(Icons.person, color: theme.surfaceContainerLowest, size: 20)),
+        _buildProfileMenuButton(auth, theme),
       ],
+    );
+  }
+
+  Widget _buildProfileMenuButton(AuthProvider auth, EliteTheme theme, {Color? iconColor}) {
+    final user = auth.currentUser;
+    final orgName = auth.profileDetails?.organizationName;
+
+    return PopupMenuButton<String>(
+      offset: const Offset(0, 48),
+      onSelected: (value) {
+        if (value == 'logout') _adminLogout();
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim().isEmpty
+                    ? (user?.username ?? 'Admin')
+                    : '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim(),
+                style: theme.heading.copyWith(fontSize: 14),
+              ),
+              if (user?.email != null)
+                Text(user!.email!, style: theme.caption.copyWith(color: theme.secondaryText)),
+              if (orgName != null)
+                Text(orgName, style: theme.caption.copyWith(color: theme.secondaryText)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'logout', child: Row(
+          children: [
+            Icon(Icons.logout, size: 18, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        )),
+      ],
+      child: CircleAvatar(
+        backgroundColor: theme.primary,
+        radius: 18,
+        child: Icon(Icons.person, color: iconColor ?? theme.surfaceContainerLowest, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildSidebarProfile(EliteTheme theme, AuthProvider auth) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: theme.accent,
+        child: Icon(Icons.person, color: theme.primary),
+      ),
+      title: Text(
+        auth.currentUser?.firstName ?? auth.currentUser?.username ?? 'Admin',
+        style: theme.heading.copyWith(color: theme.surfaceContainerLowest),
+      ),
+      subtitle: Text(
+        auth.profileDetails?.organizationName ?? auth.currentUser?.email ?? '',
+        style: theme.caption.copyWith(color: theme.surfaceContainerLowest.withValues(alpha: 0.7)),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: IconButton(
+        icon: Icon(Icons.logout, color: theme.surfaceContainerLowest.withValues(alpha: 0.8)),
+        onPressed: _adminLogout,
+        tooltip: 'Logout',
+      ),
     );
   }
 }

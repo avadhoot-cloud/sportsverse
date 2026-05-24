@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sportsverse_app/api/api_client.dart';
+import 'package:sportsverse_app/utils/form_validators.dart';
 import 'dart:convert';
 
 class CoachEnrollScreen extends StatefulWidget {
@@ -76,15 +77,15 @@ class _CoachEnrollScreenState extends State<CoachEnrollScreen> {
           key: _formKey,
           child: Column(
             children: [
-              _buildTextField(_firstNameController, "First Name", Icons.person),
+              _buildTextField(_firstNameController, "First Name", Icons.person, validator: (v) => FormValidators.validateName(v, fieldName: 'First name')),
               const SizedBox(height: 15),
-              _buildTextField(_lastNameController, "Last Name", Icons.person_outline),
+              _buildTextField(_lastNameController, "Last Name", Icons.person_outline, validator: (v) => FormValidators.validateName(v, fieldName: 'Last name')),
               const SizedBox(height: 15),
-              _buildTextField(_emailController, "Email Address", Icons.email, keyboardType: TextInputType.emailAddress),
+              _buildTextField(_emailController, "Email Address", Icons.email, keyboardType: TextInputType.emailAddress, validator: FormValidators.validateEmail),
               const SizedBox(height: 15),
-              _buildTextField(_phoneController, "Phone Number", Icons.phone, keyboardType: TextInputType.phone),
+              _buildTextField(_phoneController, "Phone Number", Icons.phone, keyboardType: TextInputType.phone, validator: FormValidators.validatePhone),
               const SizedBox(height: 15),
-              _buildTextField(_passwordController, "Login Password", Icons.lock, isPassword: true),
+              _buildTextField(_passwordController, "Login Password", Icons.lock, isPassword: true, validator: FormValidators.validatePassword),
               const SizedBox(height: 30),
               SizedBox(
                 width: double.infinity,
@@ -104,7 +105,14 @@ class _CoachEnrollScreenState extends State<CoachEnrollScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPassword = false, TextInputType? keyboardType}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool isPassword = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
       controller: controller,
       obscureText: isPassword,
@@ -114,7 +122,7 @@ class _CoachEnrollScreenState extends State<CoachEnrollScreen> {
         prefixIcon: Icon(icon, color: Colors.teal),
         border: const OutlineInputBorder(),
       ),
-      validator: (value) => value!.isEmpty ? "Required field" : null,
+      validator: validator ?? (value) => value!.isEmpty ? "Required field" : null,
     );
   }
 }

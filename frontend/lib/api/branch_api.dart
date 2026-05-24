@@ -37,7 +37,7 @@ Future<List<Branch>> getBranches() async {
     };
 
     final response = await apiClient.post(
-      '/api/accounts/branches/',
+      '/api/organizations/branches/',
       branchData,
       includeAuth: true,
     );
@@ -74,7 +74,7 @@ Future<List<Branch>> getBranches() async {
     };
 
     final response = await apiClient.put(
-      '/api/accounts/branches/$branchId/',
+      '/api/organizations/branches/$branchId/',
       branchData,
       includeAuth: true,
     );
@@ -99,7 +99,7 @@ Future<List<Branch>> getBranches() async {
   /// Delete a branch
   Future<void> deleteBranch(int branchId) async {
     final response = await apiClient.delete(
-      '/api/accounts/branches/$branchId/',
+      '/api/organizations/branches/$branchId/',
       includeAuth: true,
     );
 
@@ -116,7 +116,7 @@ Future<List<Branch>> getBranches() async {
   /// Get a specific branch
   Future<Branch> getBranch(int branchId) async {
     final response = await apiClient.get(
-      '/api/accounts/branches/$branchId/',
+      '/api/organizations/branches/$branchId/',
       includeAuth: true,
     );
 

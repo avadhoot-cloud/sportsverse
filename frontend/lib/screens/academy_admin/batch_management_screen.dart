@@ -6,6 +6,7 @@ import 'package:sportsverse_app/models/batch.dart';
 import 'package:sportsverse_app/models/branch.dart';
 import 'package:sportsverse_app/models/user.dart';
 
+import 'package:sportsverse_app/screens/academy_admin/batch_enrollments_screen.dart';
 import 'package:sportsverse_app/theme/elite_theme.dart';
 import 'package:sportsverse_app/widgets/elite_card.dart';
 import 'package:sportsverse_app/widgets/glass_header.dart';
@@ -278,10 +279,10 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   }
 
   void _navigateToEnrollments(Batch batch) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Enrollments for ${batch.name} - Coming Soon!'),
-        backgroundColor: EliteTheme.of(context).primary
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BatchEnrollmentsScreen(batch: batch),
       ),
     );
   }

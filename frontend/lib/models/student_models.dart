@@ -190,17 +190,22 @@ class StudentPayment {
   });
 
   factory StudentPayment.fromJson(Map<String, dynamic> json) {
+    final dueRaw = json['due_date'] ?? json['transaction_date'];
     return StudentPayment(
       id: json['id'] ?? 0,
       organizationId: json['organization'] ?? 0,
       studentId: json['student'] ?? 0,
       enrollmentId: json['enrollment'] ?? 0,
       amount: (json['amount'] ?? 0).toDouble(),
-      dueDate: DateTime.parse(json['due_date']),
-      paidDate: json['paid_date'] != null ? DateTime.parse(json['paid_date']) : null,
+      dueDate: dueRaw != null
+          ? DateTime.tryParse(dueRaw.toString()) ?? DateTime.now()
+          : DateTime.now(),
+      paidDate: json['paid_date'] != null
+          ? DateTime.tryParse(json['paid_date'].toString())
+          : null,
       isPaid: json['is_paid'] ?? false,
       paymentMethod: json['payment_method'],
-      transactionId: json['transaction_id'],
+      transactionId: json['transaction_id'] ?? json['receipt_number'],
       notes: json['notes'],
     );
   }
@@ -257,20 +262,34 @@ class StudentDashboardData {
     this.duprFairness,
   });
 
+  static List<StudentEnrollment> _parseEnrollments(dynamic raw) {
+    if (raw == null) return [];
+    return (raw as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      if (m['id'] == null && m['enrollment_id'] != null) {
+        m['id'] = m['enrollment_id'];
+      }
+      if (m['branch_name'] == null && m['branch'] != null) {
+        m['branch_name'] = m['branch'];
+      }
+      if (m['batch_name'] == null && m['batch_name'] == null && m['batch'] is String) {
+        m['batch_name'] = m['batch'];
+      }
+      return StudentEnrollment.fromJson(m);
+    }).toList();
+  }
+
   factory StudentDashboardData.fromJson(Map<String, dynamic> json) {
      final dupr = json['dupr'] as Map<String, dynamic>? ?? {};
+    final currentRaw = json['current_enrollments'] ?? json['enrollments'];
     return StudentDashboardData(
       currentEnrollment: json['current_enrollment'] ?? 'No Active Enrollment',
       sessionsCompleted: json['sessions_completed'] ?? 0,
       sessionsRemaining: json['sessions_remaining'] ?? 0,
       enrollmentCycle: json['enrollment_cycle'] ?? 'N/A',
-      branchName: json['branch_name'] ?? 'N/A', // ADD THIS LINE
-      currentEnrollments: (json['current_enrollments'] as List<dynamic>?)
-          ?.map((e) => StudentEnrollment.fromJson(e))
-          .toList() ?? [],
-      previousEnrollments: (json['previous_enrollments'] as List<dynamic>?)
-          ?.map((e) => StudentEnrollment.fromJson(e))
-          .toList() ?? [],
+      branchName: json['branch_name'] ?? 'N/A',
+      currentEnrollments: _parseEnrollments(currentRaw),
+      previousEnrollments: _parseEnrollments(json['previous_enrollments']),
       recentAttendance: (json['recent_attendance'] as List<dynamic>?)
           ?.map((e) => StudentAttendance.fromJson(e))
           .toList() ?? [],

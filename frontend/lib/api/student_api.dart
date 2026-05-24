@@ -332,6 +332,43 @@ class StudentApi {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getTrainingVideos() async {
+    final response = await apiClient.get('/api/academy-contents/my-training/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final list = data is List ? data : (data['results'] as List<dynamic>? ?? []);
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load videos: ${response.statusCode}');
+  }
+
+  static Future<List<Map<String, dynamic>>> getNotifications() async {
+    final response = await apiClient.get('$_basePath/notifications/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load notifications: ${response.statusCode}');
+  }
+
+  static Future<List<Map<String, dynamic>>> getEvents() async {
+    final response = await apiClient.get('$_basePath/events/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load events: ${response.statusCode}');
+  }
+
+  static Future<List<Map<String, dynamic>>> getReports() async {
+    final response = await apiClient.get('$_basePath/reports/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load reports: ${response.statusCode}');
+  }
+
   // Upload face image for encoding
   static Future<Map<String, dynamic>> uploadFaceForEncoding(String imagePath) async {
     try {

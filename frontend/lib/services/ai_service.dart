@@ -34,7 +34,7 @@ class ChatbotService {
   Future<String> sendQuery(String text) async {
     try {
       final response = await apiClient.post(
-        'api/chatbot/query',
+        'api/ai-assistant',
         {'query': text},
       );
 

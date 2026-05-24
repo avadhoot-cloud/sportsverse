@@ -7,18 +7,25 @@ from django.db import models # Added this for filtering logic
 
 class StudentVideoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TrainingVideoSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        # Assuming the student is logged in
-        student = user.student_profile 
-        
-        # Filter 1: Videos assigned specifically to this student
-        # Filter 2: Videos assigned to the student's batch with NO specific students listed (General Batch Video)
-        return TrainingVideo.objects.filter(
-            models.Q(target_students=student) | 
-            models.Q(batch=student.batch, target_students__isnull=True)
-        ).distinct()
+        from organizations.models import Enrollment
+        from django.db.models import Count
+
+        if not hasattr(self.request.user, 'student_profile'):
+            return TrainingVideo.objects.none()
+
+        student = self.request.user.student_profile
+        batch_ids = list(
+            Enrollment.objects.filter(student=student, is_active=True).values_list('batch_id', flat=True),
+        )
+        general = TrainingVideo.objects.filter(
+            organization=student.organization,
+            batch_id__in=batch_ids,
+        ).annotate(target_count=Count('target_students')).filter(target_count=0)
+        targeted = TrainingVideo.objects.filter(target_students=student)
+        return (general | targeted).distinct().order_by('-uploaded_at')
     
 
 class VideoUploadViewSet(viewsets.ModelViewSet):

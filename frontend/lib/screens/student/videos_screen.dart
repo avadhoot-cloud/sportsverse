@@ -1,38 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:sportsverse_app/api/api_client.dart';
+import 'package:sportsverse_app/api/student_api.dart';
 
-class VideosScreen extends StatelessWidget {
+class VideosScreen extends StatefulWidget {
   const VideosScreen({super.key});
 
-  // Placeholder video data – replace with real API call in PR2
-  static const List<Map<String, dynamic>> _videos = [
-    {
-      'title': 'Footwork Drills – Advanced',
-      'coach': 'Coach Rahul',
-      'duration': '12:34',
-      'sport': 'Badminton',
-      'date': 'Feb 20, 2026',
-      'thumbnail': Icons.sports_tennis,
-      'color': Color(0xFF1B3D2F),
-    },
-    {
-      'title': 'Serve Technique Masterclass',
-      'coach': 'Coach Priya',
-      'duration': '08:15',
-      'sport': 'Tennis',
-      'date': 'Feb 16, 2026',
-      'thumbnail': Icons.sports,
-      'color': Color(0xFF1565C0),
-    },
-    {
-      'title': 'Warm-up Routine – Pre Match',
-      'coach': 'Coach Arjun',
-      'duration': '05:48',
-      'sport': 'Cricket',
-      'date': 'Feb 10, 2026',
-      'thumbnail': Icons.sports_cricket,
-      'color': Color(0xFF7B1FA2),
-    },
-  ];
+  @override
+  State<VideosScreen> createState() => _VideosScreenState();
+}
+
+class _VideosScreenState extends State<VideosScreen> {
+  List<Map<String, dynamic>> _videos = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVideos();
+  }
+
+  Future<void> _loadVideos() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final videos = await StudentApi.getTrainingVideos();
+      if (mounted) {
+        setState(() {
+          _videos = videos;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _videoUrl(Map<String, dynamic> v) {
+    final file = v['video_file']?.toString() ?? '';
+    if (file.isEmpty) return '';
+    if (file.startsWith('http')) return file;
+    final base = ApiClient.baseUrl.endsWith('/')
+        ? ApiClient.baseUrl.substring(0, ApiClient.baseUrl.length - 1)
+        : ApiClient.baseUrl;
+    return '$base$file';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +59,7 @@ class VideosScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
         title: const Text(
-          "Training Videos",
+          'Training Videos',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         backgroundColor: Colors.white,
@@ -51,146 +70,61 @@ class VideosScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header banner
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1B3D2F), Color(0xFF2D6A4F)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.play_circle_fill, color: Colors.white, size: 40),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("Video Library", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                    SizedBox(height: 4),
-                    Text("Watch training videos from your coaches", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text("Recent Videos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _videos.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _videos.length,
-                    itemBuilder: (context, index) => _buildVideoCard(_videos[index]),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoCard(Map<String, dynamic> v) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Row(
-        children: [
-          // Thumbnail
-          Container(
-            width: 90,
-            height: 80,
-            decoration: BoxDecoration(
-              color: (v['color'] as Color).withOpacity(0.12),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-            ),
-            child: Center(
-              child: Icon(v['thumbnail'] as IconData, color: v['color'] as Color, size: 36),
-            ),
-          ),
-          // Info
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    v['title'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(v['coach'] as String, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (v['color'] as Color).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1B3D2F)))
+          : _error != null
+              ? Center(child: Text(_error!, textAlign: TextAlign.center))
+              : RefreshIndicator(
+                  onRefresh: _loadVideos,
+                  child: _videos.isEmpty
+                      ? ListView(
+                          children: const [
+                            SizedBox(height: 120),
+                            Center(child: Text('No training videos assigned yet')),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _videos.length,
+                          itemBuilder: (context, index) {
+                            final v = _videos[index];
+                            final title = v['title']?.toString() ?? 'Training Video';
+                            final batch = v['batch_name']?.toString() ?? 'Batch';
+                            final branch = v['branch_name']?.toString() ?? '';
+                            final uploaded = v['uploaded_at']?.toString().split('T').first ?? '';
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: ListTile(
+                                leading: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1B3D2F).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.play_circle_fill, color: Color(0xFF1B3D2F)),
+                                ),
+                                title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text(
+                                  [batch, branch, uploaded].where((s) => s.isNotEmpty).join(' · '),
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  final url = _videoUrl(v);
+                                  if (url.isNotEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Video: $url')),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          },
                         ),
-                        child: Text(v['sport'] as String,
-                            style: TextStyle(fontSize: 10, color: v['color'] as Color, fontWeight: FontWeight.bold)),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.access_time, size: 12, color: Colors.grey),
-                      const SizedBox(width: 3),
-                      Text(v['duration'] as String, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Play arrow
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(Icons.play_circle_outline, color: v['color'] as Color, size: 28),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1B3D2F).withOpacity(0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.video_library_outlined, size: 56, color: Color(0xFF1B3D2F)),
-          ),
-          const SizedBox(height: 20),
-          const Text("No videos yet", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text("Your coach hasn't uploaded any videos yet.", style: TextStyle(color: Colors.grey)),
-        ],
-      ),
+                ),
     );
   }
 }

@@ -30,7 +30,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         .fold(0.0, (sum, p) => sum + p.amount);
 
     final totalDueStr = pendingTotal.toStringAsFixed(2);
-    final nextDue = provider.paymentSummary['next_due_date'] ?? "Not Scheduled";
+    final rawNext = provider.paymentSummary['next_due_date'];
+    final nextDue = rawNext != null && rawNext.toString().isNotEmpty
+        ? rawNext.toString().split('T').first
+        : 'Not Scheduled';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFB),
